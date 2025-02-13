@@ -13,18 +13,24 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 include_directories("./includes/")
 
-set(HEADER_FILES
-    ./includes/main.h
-)
-
 set(SRC_FILES
-    ./src/main.cpp
+    # headers
+    "./includes/d2d.h"
+    "./includes/globals.h"
+    "./includes/hook.h"
+    "./includes/InitConsole.h"
+    "./includes/main.h"
+    "./includes/window.h"
+    # source files
+    "./src/d2d.cpp"
+    "./src/hook.cpp"
+    "./src/main.cpp"
+    "./src/window.cpp"
 )
 
 set(MY_EXECUTABLE_NAME "directkeycast")
 
 add_executable(${MY_EXECUTABLE_NAME} WIN32
-    ${HEADER_FILES}
     ${SRC_FILES}
 )
 
