@@ -17,7 +17,7 @@ HWND CreateTransparentWindow(HINSTANCE hInstance)
                                wc.lpszClassName,                                 //
                                L"DirectKeycastWindow",                           //
                                WS_POPUP,                                         //
-                               100, 100, 800, 600,                               //
+                               100, 100, 800, 100,                               // Left x, Left y, Width, Height
                                nullptr,                                          //
                                nullptr,                                          //
                                hInstance,                                        //

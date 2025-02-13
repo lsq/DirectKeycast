@@ -1,5 +1,6 @@
 #include "d2d.h"
 #include "globals.h"
+#include <minwindef.h>
 
 bool InitD2DAndDWrite()
 {
@@ -49,29 +50,24 @@ void OnPaint(HWND hwnd)
 {
     if (!pRenderTarget)
         return;
-
     pRenderTarget->BeginDraw();
 
     pRenderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));
-
-    pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::White, 0.5f));
-
-    pRenderTarget->FillRectangle(D2D1::RectF(50, 50, 400, 300), pBrush);
-
-    pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::Red, 1.0f));
-
-    pRenderTarget->FillRectangle(D2D1::RectF(200, 200, 500, 400), pBrush);
-
-    pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::Green, 0.3f));
-
-    pRenderTarget->FillRectangle(D2D1::RectF(300, 100, 600, 250), pBrush);
-
-    pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::White, 1.0f));   //
-    pRenderTarget->DrawTextW(L"Transparent Window and Direct2D", //
-                             31,                                 //
-                             pTextFormat,                        //
-                             D2D1::RectF(5, 5, 600, 200),        //
+    pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::White, 1.0f));
+    pRenderTarget->DrawTextW(KeyStringToCast.c_str(),       //
+                             KeyStringToCast.size(),        //
+                             pTextFormat,                   //
+                             D2D1::RectF(25, 20, 600, 200), //
                              pBrush);
+
+    // Draw renderTarget outline
+    D2D1_SIZE_F rtSize = pRenderTarget->GetSize();
+    D2D1_RECT_F borderRect = D2D1::RectF(static_cast<FLOAT>(0),            //
+                                         static_cast<FLOAT>(0),            //
+                                         static_cast<FLOAT>(rtSize.width), //
+                                         static_cast<FLOAT>(rtSize.height));
+    pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::Blue, 1.0f));
+    pRenderTarget->DrawRectangle(&borderRect, pBrush, 3.0f);
 
     HRESULT hr = pRenderTarget->EndDraw();
     if (hr == D2DERR_RECREATE_TARGET)

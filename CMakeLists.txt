@@ -9,6 +9,10 @@ add_definitions(
     /DUNICODE=1
 )
 
+add_definitions(
+    /DFANY_DEBUG
+)
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 include_directories("./includes/")

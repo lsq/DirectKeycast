@@ -1,13 +1,11 @@
-#include "InitConsole.h"
 #include "d2d.h"
 #include "globals.h"
 #include "hook.h"
 #include "window.h"
 #include <consoleapi2.h>
 
-#define FANY_DEBUG
-
 #ifdef FANY_DEBUG
+#include "InitConsole.h"
 #include <iostream>
 #endif
 
@@ -38,6 +36,8 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 
     if (!hwnd)
         return -1;
+
+    D2DHwnd = hwnd;
 
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);

@@ -2,6 +2,7 @@ CompileFlags:
   Add: [
     -DUNICODE,
     -D_UNICODE,
+    -DFANY_DEBUG,
     "-std=c++17",
     "-IC:\\Users\\SonnyCalcr\\EDisk\\CppCodes\\DirectKeycast\\includes",
     -Wno-microsoft-goto,
