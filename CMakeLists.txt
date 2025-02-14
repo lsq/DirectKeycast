@@ -25,12 +25,14 @@ set(SRC_FILES
     "./includes/hook.h"
     "./includes/InitConsole.h"
     "./includes/main.h"
+    "./includes/utils.h"
     "./includes/window.h"
     # source files
     "./src/config.cpp"
     "./src/d2d.cpp"
     "./src/hook.cpp"
     "./src/main.cpp"
+    "./src/utils.cpp"
     "./src/window.cpp"
 )
 
