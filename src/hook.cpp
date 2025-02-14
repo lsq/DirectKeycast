@@ -2,8 +2,6 @@
 #include "globals.h"
 #include <cctype>
 #include <iostream>
-#include <minwindef.h>
-#include <winuser.h>
 
 LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
 {
@@ -13,13 +11,24 @@ LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
     {
     case WM_KEYDOWN: {
         char c = MapVirtualKey(s->vkCode, MAPVK_VK_TO_CHAR);
+        c = std::tolower(c);
         if (std::isalpha(c))
         {
             InvalidateRect(D2DHwnd, nullptr, FALSE);
-            if (KeyStringToCast.size() > 30)
+            if (KeyStringToCast.size() > KeycastConfig.maxSize)
                 KeyStringToCast = L"";
             KeyStringToCast += c;
+            // KeyStringToCast += L" ";
             std::cout << c << "";
+        }
+        else
+        {
+            InvalidateRect(D2DHwnd, nullptr, FALSE);
+            if (KeyStringToCast.size() > KeycastConfig.maxSize)
+                KeyStringToCast = L"";
+            if (!KeyStringToCast.empty() && std::isalpha(KeyStringToCast[KeyStringToCast.size() - 1]))
+                KeyStringToCast += L"";
+            KeyStringToCast += L"󰁮 ";
         }
     }
 

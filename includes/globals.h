@@ -13,3 +13,8 @@ inline IDWriteTextFormat *pTextFormat = nullptr;
 
 inline std::wstring KeyStringToCast = L"";
 inline HWND D2DHwnd = nullptr;
+
+inline struct AppConfig
+{
+    int maxSize;
+} KeycastConfig;

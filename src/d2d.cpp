@@ -1,5 +1,7 @@
 #include "d2d.h"
 #include "globals.h"
+#include <d2d1.h>
+#include <d2d1helper.h>
 #include <minwindef.h>
 
 bool InitD2DAndDWrite()
@@ -13,7 +15,7 @@ bool InitD2DAndDWrite()
     if (FAILED(hr))
         return false;
 
-    hr = pDWriteFactory->CreateTextFormat(L"Microsoft YaHei UI",      //
+    hr = pDWriteFactory->CreateTextFormat(L"CaskaydiaCove Nerd Font", //
                                           nullptr,                    //
                                           DWRITE_FONT_WEIGHT_NORMAL,  //
                                           DWRITE_FONT_STYLE_NORMAL,   //
@@ -50,24 +52,32 @@ void OnPaint(HWND hwnd)
 {
     if (!pRenderTarget)
         return;
+
+    // pRenderTarget->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     pRenderTarget->BeginDraw();
 
     pRenderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));
-    pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::White, 1.0f));
-    pRenderTarget->DrawTextW(KeyStringToCast.c_str(),       //
-                             KeyStringToCast.size(),        //
-                             pTextFormat,                   //
-                             D2D1::RectF(25, 20, 600, 200), //
-                             pBrush);
 
     // Draw renderTarget outline
     D2D1_SIZE_F rtSize = pRenderTarget->GetSize();
-    D2D1_RECT_F borderRect = D2D1::RectF(static_cast<FLOAT>(0),            //
-                                         static_cast<FLOAT>(0),            //
-                                         static_cast<FLOAT>(rtSize.width), //
-                                         static_cast<FLOAT>(rtSize.height));
-    pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::Blue, 1.0f));
-    pRenderTarget->DrawRectangle(&borderRect, pBrush, 3.0f);
+    D2D1_RECT_F borderRect = D2D1::RectF(static_cast<FLOAT>(0 + 3),            //
+                                         static_cast<FLOAT>(0 + 3),            //
+                                         static_cast<FLOAT>(rtSize.width - 3), //
+                                         static_cast<FLOAT>(rtSize.height - 3));
+    D2D1_ROUNDED_RECT roundedBorderRect = D2D1::RoundedRect(borderRect, 12.0f, 12.0f);
+    pBrush->SetColor(D2D1::ColorF(35.0f / 255.0f, 35.0f / 255.0f, 35.0f / 255.0f, 0.4f));
+    // pRenderTarget->DrawRectangle(&borderRect, pBrush, 3.0f);
+    pRenderTarget->FillRoundedRectangle(roundedBorderRect, pBrush);
+    pBrush->SetColor(D2D1::ColorF(35.0f / 255.0f, 35.0f / 255.0f, 35.0f / 255.0f, 0.6f));
+    pRenderTarget->DrawRoundedRectangle(roundedBorderRect, pBrush, 3.0f);
+
+    // Draw Text
+    pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::White, 0.9f));
+    pRenderTarget->DrawTextW(KeyStringToCast.c_str(),                     //
+                             KeyStringToCast.size(),                      //
+                             pTextFormat,                                 //
+                             D2D1::RectF(25, 20, rtSize.width - 25, 200), //
+                             pBrush);
 
     HRESULT hr = pRenderTarget->EndDraw();
     if (hr == D2DERR_RECREATE_TARGET)

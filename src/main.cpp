@@ -1,3 +1,4 @@
+#include "config.h"
 #include "d2d.h"
 #include "globals.h"
 #include "hook.h"
@@ -26,6 +27,11 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     printf("Debug console started successfully.\n");
     std::cout.rdbuf(sb);
 #endif
+
+    //
+    // Init config
+    //
+    InitializeConfig();
 
     HHOOK kbd = SetWindowsHookEx(WH_KEYBOARD_LL, &KBDHook, 0, 0);
 

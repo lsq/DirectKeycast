@@ -19,6 +19,7 @@ include_directories("./includes/")
 
 set(SRC_FILES
     # headers
+    "./includes/config.h"
     "./includes/d2d.h"
     "./includes/globals.h"
     "./includes/hook.h"
@@ -26,6 +27,7 @@ set(SRC_FILES
     "./includes/main.h"
     "./includes/window.h"
     # source files
+    "./src/config.cpp"
     "./src/d2d.cpp"
     "./src/hook.cpp"
     "./src/main.cpp"
