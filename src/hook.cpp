@@ -30,6 +30,16 @@ LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
                 KeyStringToCast += L"";
             KeyStringToCast += L"󰁮 ";
         }
+        break;
+    }
+
+    //
+    // Keys like Alt would not be captured by WM_KEYDOWN, so we also need WM_SYSKEYDOWN
+    //
+    case WM_SYSKEYDOWN: {
+        KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT *)lParam;
+        std::cout << "virtual key code: " << p->vkCode;
+        break;
     }
 
     default:
