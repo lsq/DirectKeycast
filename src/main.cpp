@@ -34,6 +34,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     InitializeConfig();
 
     HHOOK kbd = SetWindowsHookEx(WH_KEYBOARD_LL, &KBDHook, 0, 0);
+    HHOOK mouse = SetWindowsHookEx(WH_MOUSE_LL, &MOUSEHook, 0, 0);
 
     if (!InitD2DAndDWrite())
         return -1;
@@ -67,6 +68,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
         pD2DFactory->Release();
 
     // Uninstall hook
+    UnhookWindowsHookEx(mouse);
     UnhookWindowsHookEx(kbd);
     return (int)msg.wParam;
 }

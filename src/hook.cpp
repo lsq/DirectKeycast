@@ -5,8 +5,11 @@
 
 LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
 {
+    if (nCode < 0)
+    {
+        goto KBDNext;
+    }
     KBDLLHOOKSTRUCT *s = reinterpret_cast<KBDLLHOOKSTRUCT *>(lParam);
-
     switch (wParam)
     {
     case WM_KEYDOWN: {
@@ -18,7 +21,6 @@ LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
             if (KeyStringToCast.size() > KeycastConfig.maxSize)
                 KeyStringToCast = L"";
             KeyStringToCast += c;
-            // KeyStringToCast += L" ";
             std::cout << c << "";
         }
         else
@@ -32,19 +34,42 @@ LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
-
     //
     // Keys like Alt would not be captured by WM_KEYDOWN, so we also need WM_SYSKEYDOWN
     //
     case WM_SYSKEYDOWN: {
-        KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT *)lParam;
-        std::cout << "virtual key code: " << p->vkCode;
         break;
     }
-
+    case WM_KEYUP: {
+        break;
+    }
+    case WM_SYSKEYUP: {
+        break;
+    }
     default:
         break;
     }
+KBDNext:
+    return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
 
+LRESULT CALLBACK MOUSEHook(int nCode, WPARAM wParam, LPARAM lParam)
+{
+    if (nCode < 0)
+    {
+        goto MOUSENext;
+    }
+    switch (wParam)
+    {
+    case WM_LBUTTONDOWN: {
+    }
+    case WM_RBUTTONDOWN: {
+    }
+    case WM_LBUTTONUP: {
+    }
+    case WM_RBUTTONUP: {
+    }
+    }
+MOUSENext:
     return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
