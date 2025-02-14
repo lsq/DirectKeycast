@@ -66,5 +66,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     if (pD2DFactory)
         pD2DFactory->Release();
 
+    // Uninstall hook
+    UnhookWindowsHookEx(kbd);
     return (int)msg.wParam;
 }
