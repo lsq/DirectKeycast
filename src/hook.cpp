@@ -1,7 +1,6 @@
 #include "hook.h"
 #include "globals.h"
 #include "utils.h"
-#include <iostream>
 
 LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
 {
@@ -13,10 +12,10 @@ LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
     switch (wParam)
     {
     case WM_KEYDOWN: {
-        std::cout << s->vkCode << std::endl;
-        if (KeyStringToCast.size() > KeycastConfig.maxSize)
+        auto curKeyStr = KeyCastMap().at(s->vkCode);
+        if (KeyStringToCast.size() > KeycastConfig.maxSize | KeyStringToCast.size() + curKeyStr.size() > KeycastConfig.maxSize)
             KeyStringToCast = L"";
-        KeyStringToCast += (L" " + string_to_wstring(KeyCastMap().at(s->vkCode)));
+        KeyStringToCast += curKeyStr;
         InvalidateRect(D2DHwnd, nullptr, FALSE);
         break;
     }
@@ -24,11 +23,10 @@ LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
     // Keys like Alt would not be captured by WM_KEYDOWN, so we also need WM_SYSKEYDOWN
     //
     case WM_SYSKEYDOWN: {
-        std::cout << s->vkCode << std::endl;
-        if (KeyStringToCast.size() > KeycastConfig.maxSize)
+        auto curKeyStr = KeyCastMap().at(s->vkCode);
+        if (KeyStringToCast.size() > KeycastConfig.maxSize | KeyStringToCast.size() + curKeyStr.size() > KeycastConfig.maxSize)
             KeyStringToCast = L"";
-        KeyStringToCast += (L" " + string_to_wstring(KeyCastMap().at(s->vkCode)));
-        KeyStringToCast += string_to_wstring(KeyCastMap().at(s->vkCode));
+        KeyStringToCast += curKeyStr;
         InvalidateRect(D2DHwnd, nullptr, FALSE);
         break;
     }

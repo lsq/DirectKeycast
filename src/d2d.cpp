@@ -15,7 +15,7 @@ bool InitD2DAndDWrite()
     if (FAILED(hr))
         return false;
 
-    hr = pDWriteFactory->CreateTextFormat(L"CaskaydiaCove Nerd Font", //
+    hr = pDWriteFactory->CreateTextFormat(L"Microsoft YaHei UI",      //
                                           nullptr,                    //
                                           DWRITE_FONT_WEIGHT_NORMAL,  //
                                           DWRITE_FONT_STYLE_NORMAL,   //
@@ -72,6 +72,7 @@ void OnPaint(HWND hwnd)
     pRenderTarget->DrawRoundedRectangle(roundedBorderRect, pBrush, 3.0f);
 
     // Draw Text
+    // RGB(70, 203, 255) for
     pBrush->SetColor(D2D1::ColorF(D2D1::ColorF::White, 0.9f));
     pRenderTarget->DrawTextW(KeyStringToCast.c_str(),                     //
                              KeyStringToCast.size(),                      //
