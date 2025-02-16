@@ -122,10 +122,10 @@ const std::unordered_map<int, std::wstring> &KeyCastMap()
         {VK_DELETE, L"<Del>"},              // 46
         {VK_END, L"<End>"},                 // 35
         {VK_NEXT, L"<Pgd>"},                // 34 (Page Down)
-        {VK_LEFT, L"\u2190"},               // 37
-        {VK_UP, L"\u2191"},                 // 38
-        {VK_RIGHT, L"\u2192"},              // 39
-        {VK_DOWN, L"\u2193"},               // 40
+        {VK_UP, L"↑"},                      // 38
+        {VK_LEFT, L"←"},                    // 37
+        {VK_DOWN, L"↓"},                    // 40
+        {VK_RIGHT, L"→"},                   // 39
         {VK_MEDIA_PREV_TRACK, L"<MPrev>"},  // 177
         {VK_MEDIA_PLAY_PAUSE, L"<MPause>"}, // 179
         {VK_MEDIA_NEXT_TRACK, L"<MNext>"},  // 176

@@ -15,7 +15,7 @@ bool InitD2DAndDWrite()
     if (FAILED(hr))
         return false;
 
-    hr = pDWriteFactory->CreateTextFormat(L"Microsoft YaHei UI",      //
+    hr = pDWriteFactory->CreateTextFormat(L"CaskaydiaCove Nerd Font", //
                                           nullptr,                    //
                                           DWRITE_FONT_WEIGHT_NORMAL,  //
                                           DWRITE_FONT_STYLE_NORMAL,   //
@@ -65,10 +65,10 @@ void OnPaint(HWND hwnd)
                                          static_cast<FLOAT>(rtSize.width - 3), //
                                          static_cast<FLOAT>(rtSize.height - 3));
     D2D1_ROUNDED_RECT roundedBorderRect = D2D1::RoundedRect(borderRect, 12.0f, 12.0f);
-    pBrush->SetColor(D2D1::ColorF(35.0f / 255.0f, 35.0f / 255.0f, 35.0f / 255.0f, 0.4f));
+    pBrush->SetColor(D2D1::ColorF(35.0f / 255.0f, 35.0f / 255.0f, 35.0f / 255.0f, 0.8f));
     // pRenderTarget->DrawRectangle(&borderRect, pBrush, 3.0f);
     pRenderTarget->FillRoundedRectangle(roundedBorderRect, pBrush);
-    pBrush->SetColor(D2D1::ColorF(35.0f / 255.0f, 35.0f / 255.0f, 35.0f / 255.0f, 0.6f));
+    pBrush->SetColor(D2D1::ColorF(35.0f / 255.0f, 35.0f / 255.0f, 35.0f / 255.0f, 0.3f));
     pRenderTarget->DrawRoundedRectangle(roundedBorderRect, pBrush, 3.0f);
 
     // Draw Text

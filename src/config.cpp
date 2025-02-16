@@ -3,5 +3,5 @@
 
 void InitializeConfig()
 {
-    KeycastConfig.maxSize = 60;
+    ::KeycastConfig.maxSize = 60;
 }
