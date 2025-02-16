@@ -2,7 +2,7 @@
 
 Rev of [Keycastow](https://github.com/brookhong/KeyCastOW).
 
-![](https://i.postimg.cc/rwyYf6m9/image.png)
+![](https://i.postimg.cc/t4QpnZsn/image.png)
 
 ## How to build and run
 
