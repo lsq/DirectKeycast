@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <minwindef.h>
 #include <winuser.h>
 
 std::wstring string_to_wstring(const std::string &str)
@@ -37,9 +38,9 @@ std::string wstring_to_string(const std::wstring &wstr)
     return str;
 }
 
-const std::unordered_map<int, std::wstring> &KeyCastMap()
+const std::unordered_map<DWORD, std::wstring> &KeyCastMap()
 {
-    static const std::unordered_map<int, std::wstring> keymap = {
+    static const std::unordered_map<DWORD, std::wstring> keymap = {
         {VK_ESCAPE, L"<Esc>"},              // 27
         {VK_F1, L"<F1>"},                   // 112
         {VK_F2, L"<F2>"},                   // 113

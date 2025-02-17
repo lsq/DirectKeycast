@@ -1,7 +1,6 @@
 #include "hook.h"
 #include "globals.h"
 #include "utils.h"
-#include <winuser.h>
 
 //
 // We need 8 bits to store our modifier keys state
@@ -31,16 +30,15 @@ std::unordered_map<DWORD, ModifierKey> VkCodeMap = {
     {VK_LWIN, LWindows},  //
     {VK_RWIN, RWindows},  //
 };
-// std::unordered_map<ModifierKey, UINT> ModifierKeyMask = {
-//     { LShift,  },  //
-//     { LShift, },  //
-// };
 UINT ModifierKeyState = 0;
 
 void HandleKeyDown(const KBDLLHOOKSTRUCT *s);
+void HandleModifierKeyDown(DWORD vkcode);
+void HandleKeyUp(const KBDLLHOOKSTRUCT *s);
+void HandleModifierKeyUp(DWORD vkcode);
 
 void SetOneModifier(DWORD vkCode);
-void GetOneModifier(DWORD vkCode);
+UINT GetOneModifier(DWORD vkCode);
 void ClearOneModifier(DWORD vkCode);
 void ClearAllModifiers();
 
@@ -58,10 +56,9 @@ LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
         HandleKeyDown(s);
         break;
     }
-    case WM_KEYUP: {
-        break;
-    }
+    case WM_KEYUP:
     case WM_SYSKEYUP: {
+        HandleKeyUp(s);
         break;
     }
     default:
@@ -94,11 +91,63 @@ MOUSENext:
 
 void HandleKeyDown(const KBDLLHOOKSTRUCT *s)
 {
-    auto curKeyStr = KeyCastMap().at(s->vkCode);
+    DWORD vkeyCode = s->vkCode;
+    if (VkCodeMap.count(vkeyCode))
+    {
+        HandleModifierKeyDown(vkeyCode);
+        return;
+    }
+    auto curKeyStr = KeyCastMap().at(vkeyCode);
     if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
         ::KeyStringToCast = L"";
     ::KeyStringToCast += curKeyStr;
     InvalidateRect(::D2DHwnd, nullptr, FALSE);
+}
+
+void HandleModifierKeyDown(DWORD vkcode)
+{
+    if (::GetOneModifier(vkcode))
+    {
+        return;
+    }
+    SetOneModifier(vkcode);
+    auto curKeyStr = KeyCastMap().at(vkcode);
+    if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
+        ::KeyStringToCast = L"";
+    ::KeyStringToCast += curKeyStr;
+    InvalidateRect(::D2DHwnd, nullptr, FALSE);
+}
+
+void HandleKeyUp(const KBDLLHOOKSTRUCT *s)
+{
+    DWORD vkeyCode = s->vkCode;
+    if (VkCodeMap.count(vkeyCode))
+    {
+        HandleModifierKeyUp(vkeyCode);
+        return;
+    }
+}
+
+void HandleModifierKeyUp(DWORD vkcode)
+{
+    if (!::GetOneModifier(vkcode))
+    {
+        return;
+    }
+    ClearOneModifier(vkcode);
+}
+
+void SetOneModifier(DWORD vkCode)
+{
+    ModifierKey curKey = VkCodeMap.at(vkCode);
+    UINT mask = 1 << curKey;
+    ::ModifierKeyState |= mask;
+}
+
+UINT GetOneModifier(DWORD vkCode)
+{
+    ModifierKey curKey = VkCodeMap.at(vkCode);
+    return (::ModifierKeyState >> curKey) & 1;
 }
 
 void ClearOneModifier(DWORD vkCode)
