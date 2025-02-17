@@ -42,6 +42,8 @@ UINT GetOneModifier(DWORD vkCode);
 void ClearOneModifier(DWORD vkCode);
 void ClearAllModifiers();
 
+bool IsOnlyOneShiftPressed();
+
 LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode < 0)
@@ -95,6 +97,23 @@ void HandleKeyDown(const KBDLLHOOKSTRUCT *s)
     if (VkCodeMap.count(vkeyCode))
     {
         HandleModifierKeyDown(vkeyCode);
+        return;
+    }
+    if (ModifierKeyState > 0)
+    {
+        UINT origin = ModifierKeyState;
+        // Only Shift Key is pressed, and current key is alpha chars or numbers
+        if (IsOnlyOneShiftPressed() && KeyCastMapOnShift().count(vkeyCode))
+        {
+            auto curKeyStr = KeyCastMapOnShift().at(vkeyCode);
+            if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
+                ::KeyStringToCast = L"";
+            ::KeyStringToCast += curKeyStr;
+            InvalidateRect(::D2DHwnd, nullptr, FALSE);
+            return;
+        }
+
+        ModifierKeyState = origin;
         return;
     }
     auto curKeyStr = KeyCastMap().at(vkeyCode);
@@ -160,4 +179,26 @@ void ClearOneModifier(DWORD vkCode)
 void ClearAllModifiers()
 {
     ::ModifierKeyState &= 0;
+}
+
+// We do not consider two shift keys are pressed at the same time
+bool IsOnlyOneShiftPressed()
+{
+    UINT state = 0;
+    ModifierKey lShift = VkCodeMap.at(VK_LSHIFT);
+    UINT mask = 1 << lShift;
+    state |= mask;
+    if (state == ::ModifierKeyState)
+    {
+        return true;
+    }
+    state = 0;
+    ModifierKey rShift = VkCodeMap.at(VK_RSHIFT);
+    mask = 1 << rShift;
+    state |= mask;
+    if (state == ::ModifierKeyState)
+    {
+        return true;
+    }
+    return false;
 }
