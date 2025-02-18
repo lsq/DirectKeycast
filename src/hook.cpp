@@ -1,6 +1,7 @@
 #include "hook.h"
 #include "globals.h"
 #include "utils.h"
+#include <numeric>
 
 //
 // We need 8 bits to store our modifier keys state
@@ -101,7 +102,6 @@ void HandleKeyDown(const KBDLLHOOKSTRUCT *s)
     }
     if (ModifierKeyState > 0)
     {
-        UINT origin = ModifierKeyState;
         // Only Shift Key is pressed, and current key is alpha chars or numbers
         if (IsOnlyOneShiftPressed() && KeyCastMapOnShift().count(vkeyCode))
         {
@@ -112,8 +112,53 @@ void HandleKeyDown(const KBDLLHOOKSTRUCT *s)
             InvalidateRect(::D2DHwnd, nullptr, FALSE);
             return;
         }
-
-        ModifierKeyState = origin;
+        // Combination Key
+        std::vector<std::wstring> modifierList;
+        if ((1 << LCtrl) & ::ModifierKeyState)
+        {
+            modifierList.push_back(L"LCtrl");
+        }
+        if ((1 << RCtrl) & ::ModifierKeyState)
+        {
+            modifierList.push_back(L"RCtrl");
+        }
+        if ((1 << LShift) & ::ModifierKeyState)
+        {
+            modifierList.push_back(L"LShift");
+        }
+        if ((1 << RShift) & ::ModifierKeyState)
+        {
+            modifierList.push_back(L"RShift");
+        }
+        if ((1 << LAlt) & ::ModifierKeyState)
+        {
+            modifierList.push_back(L"LAlt");
+        }
+        if ((1 << RAlt) & ::ModifierKeyState)
+        {
+            modifierList.push_back(L"RAlt");
+        }
+        if ((1 << LWindows) & ::ModifierKeyState)
+        {
+            modifierList.push_back(L"LWin");
+        }
+        if ((1 << RWindows) & ::ModifierKeyState)
+        {
+            modifierList.push_back(L"RWin");
+        }
+        auto curKeyStr = KeyCastMap().at(vkeyCode);
+        if (curKeyStr[0] == L'<' && curKeyStr[curKeyStr.size() - 1] == L'>')
+        {
+            curKeyStr = curKeyStr.substr(1, curKeyStr.size() - 2);
+        }
+        modifierList.push_back(curKeyStr);
+        std::wstring delimiter = L"-";
+        std::wstring curResKeyStr = std::accumulate(modifierList.begin(), modifierList.end(), std::wstring(), [&](const std::wstring &a, const std::wstring &b) { return a.empty() ? b : a + delimiter + b; });
+        curResKeyStr = L"<" + curResKeyStr + L">";
+        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curResKeyStr.size() > ::KeycastConfig.maxSize)
+            ::KeyStringToCast = L"";
+        ::KeyStringToCast += curResKeyStr;
+        InvalidateRect(::D2DHwnd, nullptr, FALSE);
         return;
     }
     auto curKeyStr = KeyCastMap().at(vkeyCode);
