@@ -95,6 +95,10 @@ MOUSENext:
 void HandleKeyDown(const KBDLLHOOKSTRUCT *s)
 {
     DWORD vkeyCode = s->vkCode;
+    if (!::KeyCastMap().count(vkeyCode))
+    {
+        return;
+    }
     if (VkCodeMap.count(vkeyCode))
     {
         HandleModifierKeyDown(vkeyCode);
