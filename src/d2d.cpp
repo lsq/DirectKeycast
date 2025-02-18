@@ -3,8 +3,9 @@
 #include "utils.h"
 #include <d2d1.h>
 #include <d2d1helper.h>
-#include <minwindef.h>
 #include <vector>
+
+HRESULT GetTextWidth(IDWriteFactory *pDWriteFactory, IDWriteTextFormat *pTextFormat, const std::wstring &text, float &textWidth);
 
 //
 // Dark mode colors, picked from Notion site with Dev Tools
@@ -44,7 +45,7 @@ struct ColorFromNotion
     const D2D1_COLOR_F DarkTextPink = D2D1::ColorF(209 / 255.0f, 87 / 255.0f, 150 / 255.0f);
     const D2D1_COLOR_F DarkTextRed = D2D1::ColorF(223 / 255.0f, 84 / 255.0f, 82 / 255.0f);
 
-    const D2D1_COLOR_F DarkBgDefault = D2D1::ColorF(37 / 255.0f, 37 / 255.0f, 37 / 255.0f);
+    const D2D1_COLOR_F DarkBgDefault = D2D1::ColorF(37 / 255.0f, 37 / 255.0f, 37 / 255.0f, 0.75f);
     const D2D1_COLOR_F DarkBgGray = D2D1::ColorF(47 / 255.0f, 47 / 255.0f, 47 / 255.0f);
     const D2D1_COLOR_F DarkBgBrown = D2D1::ColorF(74 / 255.0f, 50 / 255.0f, 40 / 255.0f);
     const D2D1_COLOR_F DarkBgOrange = D2D1::ColorF(92 / 255.0f, 59 / 255.0f, 35 / 255.0f);
@@ -55,7 +56,7 @@ struct ColorFromNotion
     const D2D1_COLOR_F DarkBgPink = D2D1::ColorF(78 / 255.0f, 44 / 255.0f, 60 / 255.0f);
     const D2D1_COLOR_F DarkBgRed = D2D1::ColorF(82 / 255.0f, 46 / 255.0f, 42 / 255.0f);
 
-    const D2D1_COLOR_F DarkOutlineDefault = D2D1::ColorF(86 / 255.0f, 86 / 255.0f, 86 / 255.0f);
+    const D2D1_COLOR_F DarkOutlineDefault = D2D1::ColorF(86 / 255.0f, 86 / 255.0f, 86 / 255.0f, 0.9f);
 } NotionColors;
 
 std::vector<D2D1_COLOR_F> ColorsVec = {
@@ -82,14 +83,16 @@ bool InitD2DAndDWrite()
     if (FAILED(hr))
         return false;
 
-    hr = pDWriteFactory->CreateTextFormat(L"CaskaydiaCove Nerd Font", //
-                                          nullptr,                    //
-                                          DWRITE_FONT_WEIGHT_NORMAL,  //
-                                          DWRITE_FONT_STYLE_NORMAL,   //
-                                          DWRITE_FONT_STRETCH_NORMAL, //
-                                          24.0f,                      //
-                                          L"zh-cn",                   //
-                                          &pTextFormat);
+    hr = pDWriteFactory->CreateTextFormat( //
+        L"CaskaydiaCove Nerd Font",        // L"Microsoft Yahei UI" for another choice
+        nullptr,                           //
+        DWRITE_FONT_WEIGHT_NORMAL,         //
+        DWRITE_FONT_STYLE_NORMAL,          //
+        DWRITE_FONT_STRETCH_NORMAL,        //
+        24.0f,                             //
+        L"zh-cn",                          //
+        &pTextFormat                       //
+    );
     if (FAILED(hr))
         return false;
 
@@ -117,6 +120,31 @@ bool InitD2DRenderTarget(HWND hwnd)
 
 void OnPaint(HWND hwnd)
 {
+    float textWidth;
+    GetTextWidth(pDWriteFactory, pTextFormat, ::KeyStringToCast, textWidth);
+    int newWidth = textWidth + 70;
+
+    RECT curRect;
+    GetWindowRect(hwnd, &curRect);
+    int currentWidth = curRect.right - curRect.left; // Current width
+    int newLeft = curRect.right - newWidth;          // Make right end fixed
+
+    if (newWidth > 0)
+    {
+        SetWindowPos(hwnd,                         //
+                     NULL,                         //
+                     newLeft,                      //
+                     curRect.top,                  //
+                     newWidth,                     //
+                     curRect.bottom - curRect.top, //
+                     SWP_NOZORDER                  //
+        );
+    }
+
+    RECT newRect;
+    GetClientRect(::D2DHwnd, &newRect);
+    pRenderTarget->Resize(D2D1::SizeU(newRect.right - newRect.left, newRect.bottom - newRect.top));
+
     if (!pRenderTarget)
         return;
 
@@ -135,28 +163,19 @@ void OnPaint(HWND hwnd)
     pBrush->SetColor(::NotionColors.DarkBgDefault);
     // pRenderTarget->DrawRectangle(&borderRect, pBrush, 3.0f);
     pRenderTarget->FillRoundedRectangle(roundedBorderRect, pBrush);
-    pBrush->SetColor(::NotionColors.DarkOutlineDefault);
+    pBrush->SetColor(::NotionColors.DarkTextGreen);
     pRenderTarget->DrawRoundedRectangle(roundedBorderRect, pBrush, 3.0f);
 
     // Draw Text
-    // pBrush->SetColor(::NotionColors.DarkTextDefault);
-    // pRenderTarget->DrawTextW(KeyStringToCast.c_str(),                     //
-    //                          KeyStringToCast.size(),                      //
-    //                          pTextFormat,                                 //
-    //                          D2D1::RectF(25, 20, rtSize.width - 25, 200), //
-    //                          pBrush);
-
-    //
     std::vector<std::wstring> words = splitString(::KeyStringToCast);
     FLOAT x = 22.0f;
     FLOAT y = 20.0f;
     FLOAT xPos = x;
     int i = 0;
     int colorCnt = ColorsVec.size();
+
     for (const auto &word : words)
     {
-        // std::cout << wstring_to_string(word);
-        // std::cout << "\n";
         pBrush->SetColor(ColorsVec[i % colorCnt]);
         i++;
         IDWriteTextLayout *pTextLayout = nullptr;
@@ -167,7 +186,6 @@ void OnPaint(HWND hwnd)
         xPos += textMetrics.width;
         pTextLayout->Release();
     }
-    // std::cout << "=============\n";
 
     HRESULT hr = pRenderTarget->EndDraw();
     if (hr == D2DERR_RECREATE_TARGET)
@@ -175,4 +193,31 @@ void OnPaint(HWND hwnd)
         pRenderTarget->Release();
         InitD2DRenderTarget(hwnd);
     }
+}
+
+HRESULT GetTextWidth(IDWriteFactory *pDWriteFactory, IDWriteTextFormat *pTextFormat, const std::wstring &text, float &textWidth)
+{
+    IDWriteTextLayout *pTextLayout = nullptr;
+    HRESULT hr = pDWriteFactory->CreateTextLayout(text.c_str(), //
+                                                  text.size(),  //
+                                                  pTextFormat,  //
+                                                  FLT_MAX,      //
+                                                  FLT_MAX,      //
+                                                  &pTextLayout);
+
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    DWRITE_TEXT_METRICS textMetrics;
+    pTextLayout->GetMetrics(&textMetrics);
+
+    UINT dpi = GetDpiForWindow(::D2DHwnd);
+    float scale = dpi / 96.0f;
+    textWidth = textMetrics.width * scale;
+
+    pTextLayout->Release();
+
+    return S_OK;
 }
