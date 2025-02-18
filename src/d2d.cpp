@@ -1,7 +1,10 @@
 #include "d2d.h"
 #include "globals.h"
+#include "utils.h"
 #include <d2d1.h>
 #include <d2d1helper.h>
+#include <minwindef.h>
+#include <vector>
 
 //
 // Dark mode colors, picked from Notion site with Dev Tools
@@ -54,6 +57,19 @@ struct ColorFromNotion
 
     const D2D1_COLOR_F DarkOutlineDefault = D2D1::ColorF(86 / 255.0f, 86 / 255.0f, 86 / 255.0f);
 } NotionColors;
+
+std::vector<D2D1_COLOR_F> ColorsVec = {
+    NotionColors.DarkTextRed,     //
+    NotionColors.DarkTextGreen,   //
+    NotionColors.DarkTextDefault, //
+    NotionColors.DarkTextYellow,  //
+    NotionColors.DarkTextBrown,   //
+    NotionColors.DarkTextBlue,    //
+    NotionColors.DarkTextOrange,  //
+    NotionColors.DarkTextPurple,  //
+    NotionColors.DarkTextGray,    //
+    NotionColors.DarkTextPink,    //
+};
 
 bool InitD2DAndDWrite()
 {
@@ -123,12 +139,35 @@ void OnPaint(HWND hwnd)
     pRenderTarget->DrawRoundedRectangle(roundedBorderRect, pBrush, 3.0f);
 
     // Draw Text
-    pBrush->SetColor(::NotionColors.DarkTextDefault);
-    pRenderTarget->DrawTextW(KeyStringToCast.c_str(),                     //
-                             KeyStringToCast.size(),                      //
-                             pTextFormat,                                 //
-                             D2D1::RectF(25, 20, rtSize.width - 25, 200), //
-                             pBrush);
+    // pBrush->SetColor(::NotionColors.DarkTextDefault);
+    // pRenderTarget->DrawTextW(KeyStringToCast.c_str(),                     //
+    //                          KeyStringToCast.size(),                      //
+    //                          pTextFormat,                                 //
+    //                          D2D1::RectF(25, 20, rtSize.width - 25, 200), //
+    //                          pBrush);
+
+    //
+    std::vector<std::wstring> words = splitString(::KeyStringToCast);
+    FLOAT x = 22.0f;
+    FLOAT y = 20.0f;
+    FLOAT xPos = x;
+    int i = 0;
+    int colorCnt = ColorsVec.size();
+    for (const auto &word : words)
+    {
+        // std::cout << wstring_to_string(word);
+        // std::cout << "\n";
+        pBrush->SetColor(ColorsVec[i % colorCnt]);
+        i++;
+        IDWriteTextLayout *pTextLayout = nullptr;
+        pDWriteFactory->CreateTextLayout(word.c_str(), word.size(), pTextFormat, 1000, 1000, &pTextLayout);
+        DWRITE_TEXT_METRICS textMetrics;
+        pTextLayout->GetMetrics(&textMetrics);
+        pRenderTarget->DrawTextLayout(D2D1::Point2F(xPos, y), pTextLayout, pBrush);
+        xPos += textMetrics.width;
+        pTextLayout->Release();
+    }
+    // std::cout << "=============\n";
 
     HRESULT hr = pRenderTarget->EndDraw();
     if (hr == D2DERR_RECREATE_TARGET)

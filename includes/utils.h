@@ -10,3 +10,5 @@ std::string wstring_to_string(const std::wstring &wstr);
 
 const std::unordered_map<DWORD, std::wstring> &KeyCastMap();
 const std::unordered_map<DWORD, std::wstring> &KeyCastMapOnShift();
+
+std::vector<std::wstring> splitString(const std::wstring &input);

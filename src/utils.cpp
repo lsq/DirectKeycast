@@ -188,3 +188,34 @@ const std::unordered_map<DWORD, std::wstring> &KeyCastMapOnShift()
     };
     return keymap;
 }
+
+std::vector<std::wstring> splitString(const std::wstring &input)
+{
+    std::vector<std::wstring> result;
+    std::wstring temp;
+    bool inTag = false;
+    for (wchar_t ch : input)
+    {
+        if (ch == L'<')
+        {
+            if (!temp.empty())
+            {
+                result.push_back(temp);
+                temp.clear();
+            }
+            inTag = true;
+        }
+        temp += ch;
+        if (ch == L'>')
+        {
+            result.push_back(temp);
+            temp.clear();
+            inTag = false;
+        }
+    }
+    if (!temp.empty())
+    {
+        result.push_back(temp);
+    }
+    return result;
+}
