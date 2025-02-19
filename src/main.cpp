@@ -10,9 +10,18 @@
 #include <iostream>
 #endif
 
+#define HOTKEY_ID 1
+
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
 {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
+    // Register Ctrl + Alt + F12 hotkey
+    if (!RegisterHotKey(nullptr, HOTKEY_ID, MOD_CONTROL | MOD_ALT, VK_F12))
+    {
+        MessageBox(nullptr, L"Cannot Register Hotkey！", L"Error", MB_ICONERROR);
+        return 1;
+    }
 
 #ifdef FANY_DEBUG
     if (AllocConsole())
@@ -52,6 +61,10 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0))
     {
+        if (msg.message == WM_HOTKEY && msg.wParam == HOTKEY_ID)
+        {
+            break; // Exit
+        }
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
