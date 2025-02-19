@@ -80,12 +80,71 @@ LRESULT CALLBACK MOUSEHook(int nCode, WPARAM wParam, LPARAM lParam)
     switch (wParam)
     {
     case WM_LBUTTONDOWN: {
+        std::wstring curKeyStr = L"<LBtnDown>";
+        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
+            ::KeyStringToCast = L"";
+        ::KeyStringToCast += curKeyStr;
+        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        break;
     }
     case WM_RBUTTONDOWN: {
+        std::wstring curKeyStr = L"<RBtnDown>";
+        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
+            ::KeyStringToCast = L"";
+        ::KeyStringToCast += curKeyStr;
+        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        break;
+    }
+    case WM_MBUTTONDOWN: {
+        std::wstring curKeyStr = L"<MBtnDown>";
+        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
+            ::KeyStringToCast = L"";
+        ::KeyStringToCast += curKeyStr;
+        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        break;
     }
     case WM_LBUTTONUP: {
+        std::wstring curKeyStr = L"<LBtnUp>";
+        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
+            ::KeyStringToCast = L"";
+        ::KeyStringToCast += curKeyStr;
+        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        break;
     }
     case WM_RBUTTONUP: {
+        std::wstring curKeyStr = L"<RBtnUp>";
+        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
+            ::KeyStringToCast = L"";
+        ::KeyStringToCast += curKeyStr;
+        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        break;
+    }
+    case WM_MBUTTONUP: {
+        std::wstring curKeyStr = L"<MBtnUp>";
+        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
+            ::KeyStringToCast = L"";
+        ::KeyStringToCast += curKeyStr;
+        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        break;
+    }
+
+    case WM_MOUSEWHEEL: {
+        std::wstring curKeyStr;
+        auto pMouse = reinterpret_cast<MSLLHOOKSTRUCT *>(lParam);
+        int delta = GET_WHEEL_DELTA_WPARAM(pMouse->mouseData);
+        if (delta > 0)
+        {
+            curKeyStr = L"<ScrollUp>";
+        }
+        else if (delta < 0)
+        {
+            curKeyStr = L"<ScrollDown>";
+        }
+        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
+            ::KeyStringToCast = L"";
+        ::KeyStringToCast += curKeyStr;
+        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        break;
     }
     }
 MOUSENext:
