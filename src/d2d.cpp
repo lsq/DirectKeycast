@@ -120,6 +120,7 @@ bool InitD2DRenderTarget(HWND hwnd)
 
 void OnPaint(HWND hwnd)
 {
+
     float textWidth;
     GetTextWidth(pDWriteFactory, pTextFormat, ::KeyStringToCast, textWidth);
     int newWidth = textWidth + 70;
@@ -129,45 +130,39 @@ void OnPaint(HWND hwnd)
     int currentWidth = curRect.right - curRect.left; // Current width
     int newLeft = curRect.right - newWidth;          // Make right end fixed
 
-    if (newWidth > 0)
-    {
-        SetWindowPos(hwnd,                         //
-                     NULL,                         //
-                     newLeft,                      //
-                     curRect.top,                  //
-                     newWidth,                     //
-                     curRect.bottom - curRect.top, //
-                     SWP_NOZORDER                  //
-        );
-    }
-
-    RECT newRect;
-    GetClientRect(::D2DHwnd, &newRect);
-    pRenderTarget->Resize(D2D1::SizeU(newRect.right - newRect.left, newRect.bottom - newRect.top));
+    // Move Content
+    FLOAT scale = ::GetWindowScale();
+    D2D1_MATRIX_3X2_F translation = D2D1::Matrix3x2F::Translation((currentWidth - newWidth) / scale, (1980 - curRect.top) / scale);
+    pRenderTarget->SetTransform(translation);
 
     if (!pRenderTarget)
         return;
 
-    // pRenderTarget->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
     pRenderTarget->BeginDraw();
 
     pRenderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));
+    std::vector<std::wstring> words;
+    if (::KeyStringToCast.empty())
+    {
+        goto Exit;
+    }
 
-    // Draw renderTarget outline
+    // Draw renderTarget background and outline
     D2D1_SIZE_F rtSize = pRenderTarget->GetSize();
-    D2D1_RECT_F borderRect = D2D1::RectF(static_cast<FLOAT>(0 + 3),            //
-                                         static_cast<FLOAT>(0 + 3),            //
-                                         static_cast<FLOAT>(rtSize.width - 3), //
-                                         static_cast<FLOAT>(rtSize.height - 3));
+    D2D1_RECT_F borderRect = D2D1::RectF(static_cast<FLOAT>(0 + 3),                                                    //
+                                         static_cast<FLOAT>(0 + 3),                                                    //
+                                         static_cast<FLOAT>(rtSize.width - 3 - (currentWidth - newWidth) / scale - 5), //
+                                         static_cast<FLOAT>(rtSize.height - 3) - (1980 - curRect.top) / scale - 5);
     D2D1_ROUNDED_RECT roundedBorderRect = D2D1::RoundedRect(borderRect, 12.0f, 12.0f);
+    // Fill Round Rectangle
     pBrush->SetColor(::NotionColors.DarkBgDefault);
-    // pRenderTarget->DrawRectangle(&borderRect, pBrush, 3.0f);
     pRenderTarget->FillRoundedRectangle(roundedBorderRect, pBrush);
-    pBrush->SetColor(::NotionColors.DarkTextGreen);
+    // Draw Outline
+    pBrush->SetColor(::NotionColors.DarkTextBlue);
     pRenderTarget->DrawRoundedRectangle(roundedBorderRect, pBrush, 3.0f);
 
     // Draw Text
-    std::vector<std::wstring> words = splitString(::KeyStringToCast);
+    words = splitString(::KeyStringToCast);
     FLOAT x = 22.0f;
     FLOAT y = 20.0f;
     FLOAT xPos = x;
@@ -179,7 +174,7 @@ void OnPaint(HWND hwnd)
         pBrush->SetColor(ColorsVec[i % colorCnt]);
         i++;
         IDWriteTextLayout *pTextLayout = nullptr;
-        pDWriteFactory->CreateTextLayout(word.c_str(), word.size(), pTextFormat, 1000, 1000, &pTextLayout);
+        pDWriteFactory->CreateTextLayout(word.c_str(), word.size(), pTextFormat, 2000, 1000, &pTextLayout);
         DWRITE_TEXT_METRICS textMetrics;
         pTextLayout->GetMetrics(&textMetrics);
         pRenderTarget->DrawTextLayout(D2D1::Point2F(xPos, y), pTextLayout, pBrush);
@@ -187,6 +182,7 @@ void OnPaint(HWND hwnd)
         pTextLayout->Release();
     }
 
+Exit:
     HRESULT hr = pRenderTarget->EndDraw();
     if (hr == D2DERR_RECREATE_TARGET)
     {
@@ -213,8 +209,7 @@ HRESULT GetTextWidth(IDWriteFactory *pDWriteFactory, IDWriteTextFormat *pTextFor
     DWRITE_TEXT_METRICS textMetrics;
     pTextLayout->GetMetrics(&textMetrics);
 
-    UINT dpi = GetDpiForWindow(::D2DHwnd);
-    float scale = dpi / 96.0f;
+    FLOAT scale = ::GetWindowScale();
     textWidth = textMetrics.width * scale;
 
     pTextLayout->Release();

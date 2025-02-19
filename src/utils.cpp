@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "globals.h"
 #include <minwindef.h>
 #include <winuser.h>
 
@@ -218,4 +219,11 @@ std::vector<std::wstring> splitString(const std::wstring &input)
         result.push_back(temp);
     }
     return result;
+}
+
+FLOAT GetWindowScale()
+{
+    UINT dpi = GetDpiForWindow(::D2DHwnd);
+    FLOAT scale = dpi / 96.0f;
+    return scale;
 }

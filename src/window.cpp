@@ -13,14 +13,29 @@ HWND CreateTransparentWindow(HINSTANCE hInstance)
     if (!RegisterClass(&wc))
         return nullptr;
 
-    HWND hwnd = CreateWindowEx(WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW, //
-                               wc.lpszClassName,                                 //
-                               L"DirectKeycastWindow",                           //
-                               WS_POPUP,                                         //
-                               2400, 1980, 1400, 100,                            // Left x, Left y, Width, Height
-                               nullptr,                                          //
-                               nullptr,                                          //
-                               hInstance,                                        //
+    // Get Main Mointor Handle
+    HMONITOR hMonitor = MonitorFromWindow(nullptr, MONITOR_DEFAULTTOPRIMARY);
+    // Monitor Infor(exclude taskbar area)
+    MONITORINFO monitorInfo = {0};
+    monitorInfo.cbSize = sizeof(MONITORINFO);
+    GetMonitorInfo(hMonitor, &monitorInfo);
+
+    int workAreaWidth = monitorInfo.rcWork.right - monitorInfo.rcWork.left;
+    int workAreaHeight = monitorInfo.rcWork.bottom - monitorInfo.rcWork.top;
+
+    int windowWidth = workAreaWidth / 2;
+    int windowHeight = workAreaHeight / 2;
+    int windowX = monitorInfo.rcWork.right - windowWidth;
+    int windowY = monitorInfo.rcWork.bottom - windowHeight;
+
+    HWND hwnd = CreateWindowEx(WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT, //
+                               wc.lpszClassName,                                                     //
+                               L"DirectKeycastWindow",                                               //
+                               WS_POPUP,                                                             //
+                               windowX, windowY, windowWidth, windowHeight,                          // Left x, Left y, Width, Height
+                               nullptr,                                                              //
+                               nullptr,                                                              //
+                               hInstance,                                                            //
                                nullptr);
 
     if (hwnd)
