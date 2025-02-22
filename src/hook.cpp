@@ -4,6 +4,7 @@
 #include "utils.h"
 #include <minwindef.h>
 #include <numeric>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <winuser.h>
@@ -53,6 +54,10 @@ void ClearAllModifiers();
 
 bool IsOnlyOneShiftPressed();
 
+void appendCurrentKeyAndUpdateWnd(std::wstring curKeyStr);
+
+static int fadeTime = 1500;
+
 LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode < 0)
@@ -60,8 +65,8 @@ LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
         goto KBDNext;
     }
 
-    ShowWindow(::D2DHwnd, SW_SHOW);       // Show Window
-    g_timerHide.Start(3000, false, true); // Hide after 3 seconds
+    ShowWindow(::D2DHwnd, SW_SHOW);           // Show Window
+    g_timerHide.Start(fadeTime, false, true); // Hide after 3 seconds
     KBDLLHOOKSTRUCT *s = reinterpret_cast<KBDLLHOOKSTRUCT *>(lParam);
     switch (wParam)
     {
@@ -92,57 +97,39 @@ LRESULT CALLBACK MOUSEHook(int nCode, WPARAM wParam, LPARAM lParam)
     if (MouseEvents.count(wParam))
     {
 
-        ShowWindow(::D2DHwnd, SW_SHOW);       // Show Window
-        g_timerHide.Start(3000, false, true); // Hide after 3 seconds
+        ShowWindow(::D2DHwnd, SW_SHOW);           // Show Window
+        g_timerHide.Start(fadeTime, false, true); // Hide after 3 seconds
     }
     switch (wParam)
     {
     case WM_LBUTTONDOWN: {
         std::wstring curKeyStr = L"<LBtnDown>";
-        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
-            ::KeyStringToCast = L"";
-        ::KeyStringToCast += curKeyStr;
-        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
         break;
     }
     case WM_RBUTTONDOWN: {
         std::wstring curKeyStr = L"<RBtnDown>";
-        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
-            ::KeyStringToCast = L"";
-        ::KeyStringToCast += curKeyStr;
-        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
         break;
     }
     case WM_MBUTTONDOWN: {
         std::wstring curKeyStr = L"<MBtnDown>";
-        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
-            ::KeyStringToCast = L"";
-        ::KeyStringToCast += curKeyStr;
-        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
         break;
     }
     case WM_LBUTTONUP: {
         std::wstring curKeyStr = L"<LBtnUp>";
-        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
-            ::KeyStringToCast = L"";
-        ::KeyStringToCast += curKeyStr;
-        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
         break;
     }
     case WM_RBUTTONUP: {
         std::wstring curKeyStr = L"<RBtnUp>";
-        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
-            ::KeyStringToCast = L"";
-        ::KeyStringToCast += curKeyStr;
-        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
         break;
     }
     case WM_MBUTTONUP: {
         std::wstring curKeyStr = L"<MBtnUp>";
-        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
-            ::KeyStringToCast = L"";
-        ::KeyStringToCast += curKeyStr;
-        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
         break;
     }
 
@@ -158,10 +145,7 @@ LRESULT CALLBACK MOUSEHook(int nCode, WPARAM wParam, LPARAM lParam)
         {
             curKeyStr = L"<ScrollDown>";
         }
-        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
-            ::KeyStringToCast = L"";
-        ::KeyStringToCast += curKeyStr;
-        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
         break;
     }
     }
@@ -236,17 +220,11 @@ void HandleKeyDown(const KBDLLHOOKSTRUCT *s)
         std::wstring delimiter = L"-";
         std::wstring curResKeyStr = std::accumulate(modifierList.begin(), modifierList.end(), std::wstring(), [&](const std::wstring &a, const std::wstring &b) { return a.empty() ? b : a + delimiter + b; });
         curResKeyStr = L"<" + curResKeyStr + L">";
-        if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curResKeyStr.size() > ::KeycastConfig.maxSize)
-            ::KeyStringToCast = L"";
-        ::KeyStringToCast += curResKeyStr;
-        InvalidateRect(::D2DHwnd, nullptr, FALSE);
+        ::appendCurrentKeyAndUpdateWnd(curResKeyStr);
         return;
     }
     auto curKeyStr = KeyCastMap().at(vkeyCode);
-    if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
-        ::KeyStringToCast = L"";
-    ::KeyStringToCast += curKeyStr;
-    InvalidateRect(::D2DHwnd, nullptr, FALSE);
+    ::appendCurrentKeyAndUpdateWnd(curKeyStr);
 }
 
 void HandleModifierKeyDown(DWORD vkcode)
@@ -257,10 +235,7 @@ void HandleModifierKeyDown(DWORD vkcode)
     }
     SetOneModifier(vkcode);
     auto curKeyStr = KeyCastMap().at(vkcode);
-    if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
-        ::KeyStringToCast = L"";
-    ::KeyStringToCast += curKeyStr;
-    InvalidateRect(::D2DHwnd, nullptr, FALSE);
+    ::appendCurrentKeyAndUpdateWnd(curKeyStr);
 }
 
 void HandleKeyUp(const KBDLLHOOKSTRUCT *s)
@@ -327,4 +302,46 @@ bool IsOnlyOneShiftPressed()
         return true;
     }
     return false;
+}
+
+void appendCurrentKeyAndUpdateWnd(std::wstring curKeyStr)
+{
+    static std::wstring lastKey = L"";
+    static int counter = 1;
+    std::wstring curStrToBeAppend;
+    if (curKeyStr.empty())
+    {
+        return;
+    }
+    if (::KeyStringToCast.empty())
+    {
+        counter = 1;
+        lastKey = L"";
+    }
+    if (curKeyStr == lastKey && lastKey[0] == L'<' && lastKey[lastKey.size() - 1] == L'>')
+    {
+        counter += 1;
+        size_t pos = ::KeyStringToCast.find_last_of(L'<');
+        if (pos != std::wstring::npos)
+        {
+            ::KeyStringToCast = ::KeyStringToCast.substr(0, pos);
+            curStrToBeAppend = curKeyStr.substr(0, curKeyStr.size() - 1) + L"x" + std::to_wstring(counter) + L">";
+        }
+        else
+        {
+            // TODO: error handle
+        }
+    }
+    else
+    {
+        counter = 1;
+        curStrToBeAppend = curKeyStr;
+    }
+    if (::KeyStringToCast.size() + curStrToBeAppend.size() > ::KeycastConfig.maxSize)
+    {
+        ::KeyStringToCast = L"";
+    }
+    ::KeyStringToCast += curStrToBeAppend;
+    InvalidateRect(::D2DHwnd, nullptr, FALSE);
+    lastKey = curKeyStr;
 }

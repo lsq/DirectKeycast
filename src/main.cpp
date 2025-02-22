@@ -19,6 +19,7 @@ CTimer g_timerShow;
 void OnHideWindow()
 {
     ShowWindow(::D2DHwnd, SW_HIDE);
+    ::KeyStringToCast = L"";
 }
 
 void OnShowWindow()
