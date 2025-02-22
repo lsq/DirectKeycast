@@ -1,7 +1,11 @@
 #include "hook.h"
+#include "CTimer.h"
 #include "globals.h"
 #include "utils.h"
 #include <numeric>
+
+extern CTimer g_timerHide;
+extern CTimer g_timerShow;
 
 //
 // We need 8 bits to store our modifier keys state
@@ -51,6 +55,9 @@ LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
     {
         goto KBDNext;
     }
+
+    ShowWindow(::D2DHwnd, SW_SHOW);       // Show Window
+    g_timerHide.Start(3000, false, true); // Hide after 3 seconds
     KBDLLHOOKSTRUCT *s = reinterpret_cast<KBDLLHOOKSTRUCT *>(lParam);
     switch (wParam)
     {
@@ -77,6 +84,8 @@ LRESULT CALLBACK MOUSEHook(int nCode, WPARAM wParam, LPARAM lParam)
     {
         goto MOUSENext;
     }
+    ShowWindow(::D2DHwnd, SW_SHOW);       // Show Window
+    g_timerHide.Start(3000, false, true); // Hide after 3 seconds
     switch (wParam)
     {
     case WM_LBUTTONDOWN: {

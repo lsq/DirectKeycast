@@ -20,6 +20,7 @@ include_directories("./includes/")
 set(SRC_FILES
     # headers
     "./includes/config.h"
+    "./includes/CTimer.h"
     "./includes/d2d.h"
     "./includes/globals.h"
     "./includes/hook.h"

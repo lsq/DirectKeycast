@@ -1,3 +1,4 @@
+#include "CTimer.h"
 #include "config.h"
 #include "d2d.h"
 #include "globals.h"
@@ -11,6 +12,19 @@
 #endif
 
 #define HOTKEY_ID 1
+
+CTimer g_timerHide;
+CTimer g_timerShow;
+
+void OnHideWindow()
+{
+    ShowWindow(::D2DHwnd, SW_HIDE);
+}
+
+void OnShowWindow()
+{
+    ShowWindow(::D2DHwnd, SW_SHOW);
+}
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
 {
@@ -57,6 +71,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
+
+    g_timerHide.OnTimedEvent = OnHideWindow;
+    g_timerShow.OnTimedEvent = OnShowWindow;
 
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0))
