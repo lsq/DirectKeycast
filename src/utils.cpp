@@ -132,6 +132,9 @@ const std::unordered_map<DWORD, std::wstring> &KeyCastMap()
         {VK_MEDIA_PLAY_PAUSE, L"<MPause>"}, // 179
         {VK_MEDIA_NEXT_TRACK, L"<MNext>"},  // 176
         {VK_NUMLOCK, L"<Num>"},             // 144
+        {VK_VOLUME_MUTE, L"<VolMute>"},     // 173
+        {VK_VOLUME_DOWN, L"<VolDown>"},     // 174
+        {VK_VOLUME_UP, L"<VolUp>"},         // 175
     };
     return keymap;
 }
