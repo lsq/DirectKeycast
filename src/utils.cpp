@@ -230,3 +230,36 @@ FLOAT GetWindowScale()
     FLOAT scale = dpi / 96.0f;
     return scale;
 }
+
+int CALLBACK EnumFontFamExProc(ENUMLOGFONTEX *lpelfe, NEWTEXTMETRICEX *lpntme, DWORD FontType, LPARAM lParam)
+{
+    std::wstring *pFontName = reinterpret_cast<std::wstring *>(lParam);
+    if (lpelfe->elfLogFont.lfFaceName == *pFontName)
+    {
+        // Found
+        *pFontName = L"";
+        return 0;
+    }
+    return 1;
+}
+
+bool IsFontExists(const std::wstring &fontName)
+{
+    HDC hdc = GetDC(NULL);
+    if (!hdc)
+    {
+        // TODO: log error
+        return false;
+    }
+
+    LOGFONT lf = {0};
+    lf.lfCharSet = DEFAULT_CHARSET;
+    wcscpy_s(lf.lfFaceName, LF_FACESIZE, fontName.c_str());
+
+    std::wstring targetFontName = fontName;
+
+    EnumFontFamiliesEx(hdc, &lf, (FONTENUMPROC)EnumFontFamExProc, (LPARAM)&targetFontName, 0);
+    ReleaseDC(NULL, hdc);
+
+    return targetFontName.empty();
+}

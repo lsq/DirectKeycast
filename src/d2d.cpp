@@ -84,7 +84,7 @@ bool InitD2DAndDWrite()
         return false;
 
     hr = pDWriteFactory->CreateTextFormat( //
-        L"CaskaydiaCove Nerd Font",        // L"Microsoft Yahei UI" for another choice
+        ::fontName.c_str(),                //
         nullptr,                           //
         DWRITE_FONT_WEIGHT_NORMAL,         //
         DWRITE_FONT_STYLE_NORMAL,          //

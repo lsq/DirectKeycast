@@ -11,6 +11,10 @@ inline ID2D1SolidColorBrush *pBrush = nullptr;
 inline IDWriteFactory *pDWriteFactory = nullptr;
 inline IDWriteTextFormat *pTextFormat = nullptr;
 
+inline std::wstring fontName = L"";
+inline std::wstring defaultFont = L"CaskaydiaCove NF";
+inline std::wstring backupFont = L"Microsoft YaHei";
+
 inline std::wstring KeyStringToCast = L"";
 inline HWND D2DHwnd = nullptr;
 

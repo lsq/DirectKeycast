@@ -14,3 +14,5 @@ const std::unordered_map<DWORD, std::wstring> &KeyCastMapOnShift();
 std::vector<std::wstring> splitString(const std::wstring &input);
 
 FLOAT GetWindowScale();
+
+bool IsFontExists(const std::wstring &fontName);
