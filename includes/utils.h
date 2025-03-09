@@ -16,3 +16,7 @@ std::vector<std::wstring> splitString(const std::wstring &input);
 FLOAT GetWindowScale();
 
 bool IsFontExists(const std::wstring &fontName);
+
+int GetTaskbarHeight();
+
+int GetPrimaryMonitorHeight();

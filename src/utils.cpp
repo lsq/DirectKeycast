@@ -263,3 +263,25 @@ bool IsFontExists(const std::wstring &fontName)
 
     return targetFontName.empty();
 }
+
+int GetTaskbarHeight()
+{
+    MONITORINFO monitorInfo = {sizeof(MONITORINFO)};
+    GetMonitorInfo(MonitorFromWindow(GetDesktopWindow(), MONITOR_DEFAULTTOPRIMARY), &monitorInfo);
+
+    RECT fullRect = monitorInfo.rcMonitor;
+    RECT workRect = monitorInfo.rcWork;
+
+    int taskbarHeight = fullRect.bottom - workRect.bottom;
+
+    return taskbarHeight;
+}
+
+int GetPrimaryMonitorHeight()
+{
+    MONITORINFO monitorInfo = {sizeof(MONITORINFO)};
+    GetMonitorInfo(MonitorFromWindow(GetDesktopWindow(), MONITOR_DEFAULTTOPRIMARY), &monitorInfo);
+
+    int height = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
+    return height;
+}

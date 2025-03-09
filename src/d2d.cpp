@@ -3,6 +3,7 @@
 #include "utils.h"
 #include <d2d1.h>
 #include <d2d1helper.h>
+#include <iostream>
 #include <vector>
 
 HRESULT GetTextWidth(IDWriteFactory *pDWriteFactory, IDWriteTextFormat *pTextFormat, const std::wstring &text, float &textWidth);
@@ -132,7 +133,12 @@ void OnPaint(HWND hwnd)
 
     // Move Content
     FLOAT scale = ::GetWindowScale();
-    D2D1_MATRIX_3X2_F translation = D2D1::Matrix3x2F::Translation((currentWidth - newWidth) / scale, (1980 - curRect.top) / scale);
+
+    std::cout << curRect.top << std::endl;
+    std::cout << 1980 - curRect.top << std::endl;
+    int taskbarHeight = ::GetTaskbarHeight();
+    int monitorHeight = ::GetPrimaryMonitorHeight();
+    D2D1_MATRIX_3X2_F translation = D2D1::Matrix3x2F::Translation((currentWidth - newWidth) / scale, ((monitorHeight - taskbarHeight) / 2.0 - 106) / scale);
     pRenderTarget->SetTransform(translation);
 
     if (!pRenderTarget)
@@ -149,10 +155,11 @@ void OnPaint(HWND hwnd)
 
     // Draw renderTarget background and outline
     D2D1_SIZE_F rtSize = pRenderTarget->GetSize();
+    std::cout << "rtSize.height: " << rtSize.height << std::endl;
     D2D1_RECT_F borderRect = D2D1::RectF(static_cast<FLOAT>(0 + 3),                                                    //
                                          static_cast<FLOAT>(0 + 3),                                                    //
                                          static_cast<FLOAT>(rtSize.width - 3 - (currentWidth - newWidth) / scale - 5), //
-                                         static_cast<FLOAT>(rtSize.height - 3) - (1980 - curRect.top) / scale - 5);
+                                         static_cast<FLOAT>(rtSize.height) - ((monitorHeight - taskbarHeight) / 2.0 - 106) / scale - 3);
     D2D1_ROUNDED_RECT roundedBorderRect = D2D1::RoundedRect(borderRect, 12.0f, 12.0f);
     // Fill Round Rectangle
     pBrush->SetColor(::NotionColors.DarkBgDefault);

@@ -1,5 +1,6 @@
 #include "window.h"
 #include "d2d.h"
+#include <iostream>
 
 HWND CreateTransparentWindow(HINSTANCE hInstance)
 {
@@ -28,6 +29,10 @@ HWND CreateTransparentWindow(HINSTANCE hInstance)
     int windowX = monitorInfo.rcWork.right - windowWidth;
     int windowY = monitorInfo.rcWork.bottom - windowHeight;
 
+    std::cout << "windowX: " << windowX << std::endl;
+    std::cout << "windowY: " << windowY << std::endl;
+    std::cout << "workAreaWidth: " << workAreaWidth << std::endl;
+    std::cout << "workAreaHeight: " << workAreaHeight << std::endl;
     HWND hwnd = CreateWindowEx(WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT, //
                                wc.lpszClassName,                                                     //
                                L"DirectKeycastWindow",                                               //
