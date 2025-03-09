@@ -12,3 +12,6 @@ Rev of [Keycastow](https://github.com/brookhong/KeyCastOW).
 ./scripts/llaunch.ps1
 ```
 
+## How to exit
+
+Use hotkey: `Ctrl + Alt + F12`.
