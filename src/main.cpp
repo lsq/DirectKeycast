@@ -5,6 +5,7 @@
 #include "hook.h"
 #include "window.h"
 #include <consoleapi2.h>
+#include <winuser.h>
 
 #ifdef FANY_DEBUG
 #include "InitConsole.h"
@@ -86,6 +87,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    // Release hotkey
+    UnregisterHotKey(nullptr, HOTKEY_ID);
 
     if (pBrush)
         pBrush->Release();
