@@ -4,7 +4,8 @@ Notice: Under construction. Lightweight usage is now available. If you encounter
 
 Rev of [Keycastow](https://github.com/brookhong/KeyCastOW).
 
-![](https://i.postimg.cc/VLGnmh7W/image.png)
+## Release Binaries
+https://github.com/lsq/DirectKeycast/releases
 
 ## How to build and run
 

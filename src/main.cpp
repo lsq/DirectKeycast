@@ -13,6 +13,13 @@
 #endif
 
 #define HOTKEY_ID 1
+#ifdef __MINGW64__
+/* function call for direct to dll */
+
+/* select for highest DPI */
+typedef BOOL (WINAPI *PGNSI)(DPI_AWARENESS_CONTEXT); 
+#define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((DPI_AWARENESS_CONTEXT)-4)
+#endif
 
 CTimer g_timerHide;
 CTimer g_timerShow;
@@ -30,7 +37,21 @@ void OnShowWindow()
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
 {
+#ifdef __MINGW64__
+    /* turn off scaling. The following call gets around the lack of a
+       declaration in mingw */
+    PGNSI pGNSI = (PGNSI) GetProcAddress(GetModuleHandle(TEXT("user32.dll")),
+                                   "SetProcessDpiAwarenessContext");
+    if (NULL != pGNSI) {
+
+       BOOL r = pGNSI(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+       // if (!r) winerr();
+       if (!r) return -1;
+
+    }
+#else
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+#endif
 
     // Register Ctrl + Alt + F12 hotkey
     if (!RegisterHotKey(nullptr, HOTKEY_ID, MOD_CONTROL | MOD_ALT, VK_F12))
