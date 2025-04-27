@@ -64,7 +64,7 @@ jobs:
         #if: ${{ steps.check_update.outputs.updateable == 1 }}
         with:
           files: |
-            directkeycast.exe           
+            directkeycast*.exe           
           name: latest      
           tag_name: latest      
           #body_path: gitlog.txt
