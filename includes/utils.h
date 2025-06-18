@@ -3,10 +3,6 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
-#ifdef __MINGW64__
-#define WINVER 0x0605
-#include <vector>
-#endif
 #include <windows.h>
 
 std::wstring string_to_wstring(const std::string &str);

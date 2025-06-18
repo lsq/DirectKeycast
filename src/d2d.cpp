@@ -5,9 +5,6 @@
 #include <d2d1_3.h>
 #include <d2d1helper.h>
 #include <iostream>
-#ifdef __MINGW64__
-#include <cfloat>
-#endif
 #include <vector>
 
 HRESULT GetTextWidth(IDWriteFactory *pDWriteFactory, IDWriteTextFormat *pTextFormat, const std::wstring &text, float &textWidth);
@@ -156,7 +153,7 @@ void OnPaint(HWND hwnd)
     {
         goto Exit;
     }
-{
+
     // Draw renderTarget background and outline
     D2D1_SIZE_F rtSize = pRenderTarget->GetSize();
     std::cout << "rtSize.height: " << rtSize.height << std::endl;
@@ -192,7 +189,7 @@ void OnPaint(HWND hwnd)
         xPos += textMetrics.width;
         pTextLayout->Release();
     }
-}
+
 Exit:
     HRESULT hr = pRenderTarget->EndDraw();
     if (hr == D2DERR_RECREATE_TARGET)
@@ -222,6 +219,8 @@ HRESULT GetTextWidth(IDWriteFactory *pDWriteFactory, IDWriteTextFormat *pTextFor
 
     FLOAT scale = ::GetWindowScale();
     textWidth = textMetrics.width * scale;
+
     pTextLayout->Release();
+
     return S_OK;
 }
