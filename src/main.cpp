@@ -31,8 +31,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-    // Register Ctrl + Alt + F12 hotkey
-    if (!RegisterHotKey(nullptr, HOTKEY_ID, MOD_CONTROL | MOD_ALT, VK_F12))
+    // Register Ctrl + Alt + Shift + F12 hotkey
+    UnregisterHotKey(nullptr, HOTKEY_ID);
+    if (!RegisterHotKey(nullptr, HOTKEY_ID, MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F12))
     {
         MessageBox(nullptr, L"Cannot Register Hotkey！", L"Error", MB_ICONERROR);
         return 1;
