@@ -4,7 +4,7 @@ CompileFlags:
     -D_UNICODE,
     -DFANY_DEBUG,
     "-std=c++17",
-    "-IC:\\Users\\SonnyCalcr\\EDisk\\CppCodes\\DirectKeycast\\includes",
+    "-IC:/Users/YXF/EDisk/CppCodes/Win32Codes/DirectKeycast/includes",
     -Wno-microsoft-goto,
     -Wno-nonportable-include-path,
     -Wno-microsoft-extra-qualification,

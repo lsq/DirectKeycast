@@ -4,7 +4,6 @@
 #include "globals.h"
 #include "hook.h"
 #include "window.h"
-#include <consoleapi2.h>
 #include <winuser.h>
 
 #ifdef FANY_DEBUG
