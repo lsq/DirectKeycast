@@ -1,6 +1,7 @@
 #include "window.h"
 #include "d2d.h"
-#include <iostream>
+#include "globals.h"
+#include <debugapi.h>
 
 HWND CreateTransparentWindow(HINSTANCE hInstance)
 {
@@ -20,7 +21,6 @@ HWND CreateTransparentWindow(HINSTANCE hInstance)
     MONITORINFO monitorInfo = {0};
     monitorInfo.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(hMonitor, &monitorInfo);
-
     int workAreaWidth = monitorInfo.rcWork.right - monitorInfo.rcWork.left;
     int workAreaHeight = monitorInfo.rcWork.bottom - monitorInfo.rcWork.top;
 
@@ -29,19 +29,22 @@ HWND CreateTransparentWindow(HINSTANCE hInstance)
     int windowX = monitorInfo.rcWork.right - windowWidth;
     int windowY = monitorInfo.rcWork.bottom - windowHeight;
 
-    std::cout << "windowX: " << windowX << std::endl;
-    std::cout << "windowY: " << windowY << std::endl;
-    std::cout << "workAreaWidth: " << workAreaWidth << std::endl;
-    std::cout << "workAreaHeight: " << workAreaHeight << std::endl;
-    HWND hwnd = CreateWindowEx(WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT, //
-                               wc.lpszClassName,                                                     //
-                               L"DirectKeycastWindow",                                               //
-                               WS_POPUP,                                                             //
-                               windowX, windowY, windowWidth, windowHeight,                          // Left x, Left y, Width, Height
-                               nullptr,                                                              //
-                               nullptr,                                                              //
-                               hInstance,                                                            //
-                               nullptr);
+    ::WindowArea = {windowX, windowY, monitorInfo.rcWork.right, monitorInfo.rcWork.bottom};
+
+    UINT exStyle = WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
+    HWND hwnd = CreateWindowEx( //
+        exStyle,                //
+        wc.lpszClassName,       //
+        L"DirectKeycastWindow", //
+        WS_POPUP,               //
+        windowX,                //
+        windowY,                //
+        windowWidth,            //
+        windowHeight,           //
+        nullptr,                //
+        nullptr,                //
+        hInstance,              //
+        nullptr);
 
     if (hwnd)
     {
@@ -60,6 +63,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
         InitD2DRenderTarget(hwnd);
+        InitGlobalConfigWithD2D();
         return 0;
 
     case WM_PAINT:

@@ -4,10 +4,16 @@
 #include <d2d1.h>
 #include <d2d1_3.h>
 #include <d2d1helper.h>
-#include <iostream>
+#include <debugapi.h>
+#include <string>
+#include <utility>
 #include <vector>
 
-HRESULT GetTextWidth(IDWriteFactory *pDWriteFactory, IDWriteTextFormat *pTextFormat, const std::wstring &text, float &textWidth);
+std::pair<float, float> GetTextWidth( //
+    IDWriteFactory *pDWriteFactory,   //
+    IDWriteTextFormat *pTextFormat,   //
+    const std::wstring &text          //
+);
 
 //
 // Dark mode colors, picked from Notion site with Dev Tools
@@ -109,8 +115,20 @@ bool InitD2DRenderTarget(HWND hwnd)
     RECT rc;
     GetClientRect(hwnd, &rc);
 
-    HRESULT hr = pD2DFactory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED)),
-                                                     D2D1::HwndRenderTargetProperties(hwnd, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top), D2D1_PRESENT_OPTIONS_IMMEDIATELY), &pRenderTarget);
+    auto renderTargetProps = D2D1::RenderTargetProperties(                    //
+        D2D1_RENDER_TARGET_TYPE_DEFAULT,                                      //
+        D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED) //
+    );
+    auto hwndRenderTargetProps = D2D1::HwndRenderTargetProperties( //
+        hwnd,                                                      //
+        D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top),       //
+        D2D1_PRESENT_OPTIONS_IMMEDIATELY                           //
+    );
+    HRESULT hr = pD2DFactory->CreateHwndRenderTarget( //
+        renderTargetProps,                            //
+        hwndRenderTargetProps,                        //
+        &pRenderTarget                                //
+    );
 
     if (SUCCEEDED(hr))
     {
@@ -122,45 +140,44 @@ bool InitD2DRenderTarget(HWND hwnd)
 
 void OnPaint(HWND hwnd)
 {
-
-    float textWidth;
-    GetTextWidth(pDWriteFactory, pTextFormat, ::KeyStringToCast, textWidth);
-    int newWidth = textWidth + 70;
-
-    RECT curRect;
-    GetWindowRect(hwnd, &curRect);
-    int currentWidth = curRect.right - curRect.left; // Current width
-    int newLeft = curRect.right - newWidth;          // Make right end fixed
-
-    // Move Content
-    FLOAT scale = ::GetWindowScale();
-
-    std::cout << curRect.top << std::endl;
-    std::cout << 1980 - curRect.top << std::endl;
-    int taskbarHeight = ::GetTaskbarHeight();
-    int monitorHeight = ::GetPrimaryMonitorHeight();
-    D2D1_MATRIX_3X2_F translation = D2D1::Matrix3x2F::Translation((currentWidth - newWidth) / scale, ((monitorHeight - taskbarHeight) / 2.0 - 106) / scale);
-    pRenderTarget->SetTransform(translation);
+    auto textSize = GetTextWidth(pDWriteFactory, pTextFormat, ::KeyStringToCast);
 
     if (!pRenderTarget)
         return;
 
     pRenderTarget->BeginDraw();
-
     pRenderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));
+
     std::vector<std::wstring> words;
     if (::KeyStringToCast.empty())
     {
         goto Exit;
     }
 
-    // Draw renderTarget background and outline
-    D2D1_SIZE_F rtSize = pRenderTarget->GetSize();
-    std::cout << "rtSize.height: " << rtSize.height << std::endl;
-    D2D1_RECT_F borderRect = D2D1::RectF(static_cast<FLOAT>(0 + 3),                                                    //
-                                         static_cast<FLOAT>(0 + 3),                                                    //
-                                         static_cast<FLOAT>(rtSize.width - 3 - (currentWidth - newWidth) / scale - 5), //
-                                         static_cast<FLOAT>(rtSize.height) - ((monitorHeight - taskbarHeight) / 2.0 - 106) / scale - 3);
+    float borderX = 3.0f;
+    float borderY = 3.0f;
+    float borderWidth = textSize.first;
+    float borderHeight = textSize.second;
+
+    // Draw Text
+    words = splitString(::KeyStringToCast);
+    float textMarginLeft = 5.0f;
+    float textMarginRight = 5.0f;
+    float textMarginTop = 5.0f;
+    float textMarginBottom = 5.0f;
+
+    float textX = borderX + textMarginLeft;
+    float textY = borderY + textMarginTop;
+    float textWidth = textSize.first;
+    float textHeight = textSize.second;
+
+    // Draw Round Rectangle
+    D2D1_RECT_F borderRect = D2D1::RectF(                         //
+        borderX,                                                  //
+        borderY,                                                  //
+        borderX + borderWidth + textMarginLeft + textMarginRight, //
+        borderY + borderHeight + textMarginTop + textMarginBottom //
+    );
     D2D1_ROUNDED_RECT roundedBorderRect = D2D1::RoundedRect(borderRect, 12.0f, 12.0f);
     // Fill Round Rectangle
     pBrush->SetColor(::NotionColors.DarkBgDefault);
@@ -170,23 +187,31 @@ void OnPaint(HWND hwnd)
     pRenderTarget->DrawRoundedRectangle(roundedBorderRect, pBrush, 3.0f);
 
     // Draw Text
-    words = splitString(::KeyStringToCast);
-    FLOAT x = 22.0f;
-    FLOAT y = 20.0f;
-    FLOAT xPos = x;
+    float curXPos = textX;
     int i = 0;
     int colorCnt = ColorsVec.size();
-
     for (const auto &word : words)
     {
         pBrush->SetColor(ColorsVec[i % colorCnt]);
         i++;
         IDWriteTextLayout *pTextLayout = nullptr;
-        pDWriteFactory->CreateTextLayout(word.c_str(), word.size(), pTextFormat, 2000, 1000, &pTextLayout);
+        pDWriteFactory->CreateTextLayout( //
+            word.c_str(),                 //
+            word.size(),                  //
+            pTextFormat,                  //
+            1000.0f,                      //
+            1000.0f,                      //
+            &pTextLayout);
         DWRITE_TEXT_METRICS textMetrics;
         pTextLayout->GetMetrics(&textMetrics);
-        pRenderTarget->DrawTextLayout(D2D1::Point2F(xPos, y), pTextLayout, pBrush);
-        xPos += textMetrics.width;
+        pRenderTarget->DrawTextLayout( //
+            D2D1::Point2F(             //
+                curXPos,               //
+                textY),                //
+            pTextLayout,               //
+            pBrush                     //
+        );
+        curXPos += textMetrics.width;
         pTextLayout->Release();
     }
 
@@ -199,28 +224,50 @@ Exit:
     }
 }
 
-HRESULT GetTextWidth(IDWriteFactory *pDWriteFactory, IDWriteTextFormat *pTextFormat, const std::wstring &text, float &textWidth)
+std::pair<float, float> GetTextWidth( //
+    IDWriteFactory *pDWriteFactory,   //
+    IDWriteTextFormat *pTextFormat,   //
+    const std::wstring &text          //
+)
 {
     IDWriteTextLayout *pTextLayout = nullptr;
-    HRESULT hr = pDWriteFactory->CreateTextLayout(text.c_str(), //
-                                                  text.size(),  //
-                                                  pTextFormat,  //
-                                                  FLT_MAX,      //
-                                                  FLT_MAX,      //
-                                                  &pTextLayout);
-
+    HRESULT hr = pDWriteFactory->CreateTextLayout( //
+        text.c_str(),                              //
+        text.size(),                               //
+        pTextFormat,                               //
+        FLT_MAX,                                   //
+        FLT_MAX,                                   //
+        &pTextLayout                               //
+    );
     if (FAILED(hr))
     {
-        return hr;
+        return std::make_pair(0.0f, 0.0f);
     }
-
     DWRITE_TEXT_METRICS textMetrics;
     pTextLayout->GetMetrics(&textMetrics);
-
-    FLOAT scale = ::GetWindowScale();
-    textWidth = textMetrics.width * scale;
-
     pTextLayout->Release();
 
-    return S_OK;
+    return std::make_pair(textMetrics.width, textMetrics.height);
+}
+
+bool InitGlobalConfigWithD2D()
+{
+    int i = 1;
+    std::wstring testStr = L"M";
+    auto scale = GetWindowScale();
+    if (scale == 0.0f)
+    {
+        return false;
+    }
+    float textSize = scale * (GetTextWidth(pDWriteFactory, pTextFormat, testStr).first);
+    float maxSize = WindowArea.right - WindowArea.left;
+    while (textSize < maxSize)
+    {
+        textSize = scale * (GetTextWidth(pDWriteFactory, pTextFormat, testStr).first);
+        testStr += L"M";
+        i += 1;
+    }
+    testStr = L"M";
+    ::KeycastConfig.maxSize = i - 3;
+    return true;
 }
