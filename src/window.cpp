@@ -88,9 +88,58 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         PostQuitMessage(0);
         return 0;
 
+    case WM_TRAYICON: {
+        if (lParam == WM_RBUTTONUP)
+        {
+            ShowTrayMenu(hwnd);
+        }
+        break;
+    }
+
+    case WM_COMMAND: {
+        if (LOWORD(wParam) == ID_TRAY_EXIT)
+        {
+            PostQuitMessage(0);
+        }
+        break;
+    }
+
     default:
         return DefWindowProc(hwnd, message, wParam, lParam);
     }
 
     return 0;
+}
+
+// System tray
+void AddTrayIcon(HWND hwnd)
+{
+    nid.cbSize = sizeof(NOTIFYICONDATA);
+    nid.hWnd = hwnd;
+    nid.uID = 1;
+    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    nid.uCallbackMessage = WM_TRAYICON;
+    nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION); // Icon
+    wcscpy_s(nid.szTip, L"DirectKeycast");
+
+    Shell_NotifyIcon(NIM_ADD, &nid);
+}
+
+void RemoveTrayIcon()
+{
+    Shell_NotifyIcon(NIM_DELETE, &nid);
+}
+
+void ShowTrayMenu(HWND hwnd)
+{
+    POINT pt;
+    GetCursorPos(&pt);
+
+    HMENU hMenu = CreatePopupMenu();
+    InsertMenu(hMenu, 0, MF_BYPOSITION | MF_STRING, ID_TRAY_EXIT, L"exit");
+
+    // Pop up the menu at the current mouse position
+    SetForegroundWindow(hwnd);
+    TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hwnd, NULL);
+    DestroyMenu(hMenu);
 }

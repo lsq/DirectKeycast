@@ -6,11 +6,6 @@
 #include "window.h"
 #include <winuser.h>
 
-#ifdef FANY_DEBUG
-#include "InitConsole.h"
-#include <iostream>
-#endif
-
 #define HOTKEY_ID 1
 
 CTimer g_timerHide;
@@ -39,20 +34,6 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
         return 1;
     }
 
-#ifdef FANY_DEBUG
-    if (AllocConsole())
-    {
-        FILE *pCout;
-        freopen_s(&pCout, "CONOUT$", "w", stdout);
-        SetConsoleTitleW(L"Fany Debug");
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_RED);
-    }
-    outbuf ob;
-    std::streambuf *sb = std::cout.rdbuf(&ob);
-    printf("Debug console started successfully.\n");
-    std::cout.rdbuf(sb);
-#endif
-
     //
     // Init config
     //
@@ -73,6 +54,8 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
+
+    AddTrayIcon(hwnd);
 
     g_timerHide.OnTimedEvent = OnHideWindow;
     g_timerShow.OnTimedEvent = OnShowWindow;

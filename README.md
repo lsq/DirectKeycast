@@ -26,6 +26,8 @@ Then, run the following command in your powershell,
 
 ## How to exit
 
-Use hotkey: `Ctrl + Alt + Shift + F12`.
+Kill it at the system tray pop-up menu.
+
+Or, use hotkey: `Ctrl + Alt + Shift + F12`.
 
 Or, kill it from task manager.
