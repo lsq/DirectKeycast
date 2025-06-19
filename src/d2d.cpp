@@ -145,38 +145,51 @@ void OnPaint(HWND hwnd)
     if (!pRenderTarget)
         return;
 
-    pRenderTarget->BeginDraw();
-    pRenderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));
-
-    std::vector<std::wstring> words;
-    if (::KeyStringToCast.empty())
-    {
-        goto Exit;
-    }
-
-    float borderX = 3.0f;
-    float borderY = 3.0f;
-    float borderWidth = textSize.first;
-    float borderHeight = textSize.second;
-
-    // Draw Text
-    words = splitString(::KeyStringToCast);
+    // Prepare size info
     float textMarginLeft = 5.0f;
     float textMarginRight = 5.0f;
-    float textMarginTop = 5.0f;
-    float textMarginBottom = 5.0f;
+    float textMarginTop = 8.0f;
+    float textMarginBottom = 8.0f;
+
+    /* Outline border info */
+    float borderX = 0.0f;
+    float borderY = 0.0f;
+    float borderWidth = textSize.first + textMarginLeft + textMarginRight;
+    float borderHeight = textSize.second + textMarginTop + textMarginBottom;
+    float borderThickness = 3.0f;
 
     float textX = borderX + textMarginLeft;
     float textY = borderY + textMarginTop;
     float textWidth = textSize.first;
     float textHeight = textSize.second;
 
+    float scale = GetWindowScale();
+    float canvasWidth = (WindowArea.right - WindowArea.left) / scale;
+    float canvasHeight = (WindowArea.bottom - WindowArea.top) / scale;
+    float containerRightMargin = 2.0f;
+    float containerBottomMargin = 2.0f;
+    D2D1_MATRIX_3X2_F translation = D2D1::Matrix3x2F::Translation( //
+        canvasWidth - borderWidth - containerRightMargin,          //
+        canvasHeight - borderHeight - containerBottomMargin        //
+    );
+    pRenderTarget->SetTransform(translation);
+
+    pRenderTarget->BeginDraw();
+    pRenderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));
+
+    std::vector<std::wstring> words;
+    words = splitString(::KeyStringToCast);
+    if (::KeyStringToCast.empty())
+    {
+        goto Exit;
+    }
+
     // Draw Round Rectangle
-    D2D1_RECT_F borderRect = D2D1::RectF(                         //
-        borderX,                                                  //
-        borderY,                                                  //
-        borderX + borderWidth + textMarginLeft + textMarginRight, //
-        borderY + borderHeight + textMarginTop + textMarginBottom //
+    D2D1_RECT_F borderRect = D2D1::RectF( //
+        borderX,                          //
+        borderY,                          //
+        borderX + borderWidth,            //
+        borderY + borderHeight            //
     );
     D2D1_ROUNDED_RECT roundedBorderRect = D2D1::RoundedRect(borderRect, 12.0f, 12.0f);
     // Fill Round Rectangle
@@ -184,7 +197,18 @@ void OnPaint(HWND hwnd)
     pRenderTarget->FillRoundedRectangle(roundedBorderRect, pBrush);
     // Draw Outline
     pBrush->SetColor(::NotionColors.DarkTextBlue);
-    pRenderTarget->DrawRoundedRectangle(roundedBorderRect, pBrush, 3.0f);
+    borderRect = D2D1::RectF(                                          //
+        borderX + borderThickness / 2,                                 //
+        borderY + borderThickness / 2,                                 //
+        borderX + borderThickness / 2 + borderWidth - borderThickness, //
+        borderY + borderThickness / 2 + borderHeight - borderThickness //
+    );
+    roundedBorderRect = D2D1::RoundedRect(borderRect, 12.0f, 12.0f);
+    pRenderTarget->DrawRoundedRectangle( //
+        roundedBorderRect,               //
+        pBrush,                          //
+        borderThickness                  //
+    );
 
     // Draw Text
     float curXPos = textX;
