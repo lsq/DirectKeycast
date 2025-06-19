@@ -226,7 +226,7 @@ std::vector<std::wstring> splitString(const std::wstring &input)
 
 FLOAT GetWindowScale()
 {
-    UINT dpi = GetDpiForWindow(GetForegroundWindow());
+    UINT dpi = GetDpiForSystem();
     FLOAT scale = dpi / 96.0f;
     return scale;
 }
