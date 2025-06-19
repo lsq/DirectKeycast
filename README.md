@@ -20,4 +20,6 @@ Then, run the following command in your powershell,
 
 ## How to exit
 
-Use hotkey: `Ctrl + Alt + F12`.
+Use hotkey: `Ctrl + Alt + Shift + F12`.
+
+Or, kill it from task manager.
