@@ -140,6 +140,7 @@ void ShowTrayMenu(HWND hwnd)
 
     // Pop up the menu at the current mouse position
     SetForegroundWindow(hwnd);
-    TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hwnd, NULL);
+    // TODO: Pop up position need to consider different monitor resolution
+    TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x + 10, pt.y - 25, 0, hwnd, NULL);
     DestroyMenu(hMenu);
 }
