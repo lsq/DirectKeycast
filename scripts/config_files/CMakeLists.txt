@@ -46,3 +46,6 @@ add_executable(${MY_EXECUTABLE_NAME} WIN32
 target_include_directories(${MY_EXECUTABLE_NAME}
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/includes
 )
+if (MINGW)
+    target_link_libraries(${MY_EXECUTABLE_NAME} d2d1 dwrite dwmapi -municode)
+endif()

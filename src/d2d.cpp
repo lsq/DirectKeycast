@@ -7,6 +7,9 @@
 #include <debugapi.h>
 #include <string>
 #include <utility>
+#ifdef __MINGW64__
+#include <cfloat>
+#endif
 #include <vector>
 
 std::pair<float, float> GetTextWidth( //
@@ -183,7 +186,7 @@ void OnPaint(HWND hwnd)
     {
         goto Exit;
     }
-
+    {
     // Draw Round Rectangle
     D2D1_RECT_F borderRect = D2D1::RectF( //
         borderX,                          //
@@ -238,7 +241,7 @@ void OnPaint(HWND hwnd)
         curXPos += textMetrics.width;
         pTextLayout->Release();
     }
-
+    }
 Exit:
     HRESULT hr = pRenderTarget->EndDraw();
     if (hr == D2DERR_RECREATE_TARGET)

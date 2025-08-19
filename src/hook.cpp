@@ -65,6 +65,7 @@ LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
         goto KBDNext;
     }
 
+    {
     ShowWindow(::D2DHwnd, SW_SHOW);           // Show Window
     g_timerHide.Start(fadeTime, false, true); // Hide after 3 seconds
     KBDLLHOOKSTRUCT *s = reinterpret_cast<KBDLLHOOKSTRUCT *>(lParam);
@@ -83,6 +84,7 @@ LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
     default:
         break;
     }
+    }
 KBDNext:
     return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
@@ -93,6 +95,7 @@ LRESULT CALLBACK MOUSEHook(int nCode, WPARAM wParam, LPARAM lParam)
     {
         goto MOUSENext;
     }
+    {
     static std::unordered_set<WPARAM> MouseEvents{WM_LBUTTONDOWN, WM_RBUTTONDOWN, WM_LBUTTONUP, WM_RBUTTONUP, WM_MBUTTONDOWN, WM_RBUTTONUP, WM_MOUSEWHEEL};
     if (MouseEvents.count(wParam))
     {
@@ -147,6 +150,7 @@ LRESULT CALLBACK MOUSEHook(int nCode, WPARAM wParam, LPARAM lParam)
         }
         ::appendCurrentKeyAndUpdateWnd(curKeyStr);
         break;
+    }
     }
     }
 MOUSENext:
