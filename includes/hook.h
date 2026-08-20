@@ -1,5 +1,9 @@
 #pragma once
 #include <windows.h>
 
-LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK MOUSEHook(int nCode, WPARAM wParam, LPARAM lParam);
+void StartInputCapture(HWND hwnd);
+void StopInputCapture();
+void UpdateMouseRawInput();
+void HandlePostedKeyEvent(WPARAM wParam, DWORD vkCode);
+void HandleRawMouseInput(HRAWINPUT hRaw);
+void PulseOverlay();

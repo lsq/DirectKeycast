@@ -1,297 +1,346 @@
 #include "d2d.h"
 #include "globals.h"
+#include "theme.h"
 #include "utils.h"
+#include "window.h"
+#include <algorithm>
 #include <d2d1.h>
-#include <d2d1_3.h>
-#include <d2d1helper.h>
-#include <debugapi.h>
-#include <string>
-#include <utility>
 #include <vector>
 
-std::pair<float, float> GetTextWidth( //
-    IDWriteFactory *pDWriteFactory,   //
-    IDWriteTextFormat *pTextFormat,   //
-    const std::wstring &text          //
-);
-
-//
-// Dark mode colors, picked from Notion site with Dev Tools
-// Text
-// Default: #FFFFFFCF, (255, 255, 255, 0.81)
-// Gray: #9B9B9B, (155, 155, 155)
-// Brown: #BA856F, (186, 133, 111)
-// Orange: #C77D48, (199, 125, 72)
-// Yellow: #CA984D, (202, 152, 77)
-// Green: #529E72, (82, 158, 114)
-// Blue: #379AD3, (55, 154, 211)
-// Purple: #9D68D3, (157, 104, 211)
-// Pink: #D15796, (209, 87, 150)
-// Red: #DF5452, (223, 84, 82)
-//
-// Background
-// Default: #252525, (37, 37, 37)
-// Gray: #2F2F2F, (47, 47, 47)
-// Brown: #4A3228, (74, 50, 40)
-// Orange: #5C3B23, (92, 59, 35)
-// Yellow: #564328, (86, 67, 40)
-// Green: #243D30, (36, 61, 48)
-// Blue: #143A4E, (20, 58, 78)
-// Purple: #3C2D49, (60, 45, 73)
-// Pink: #4E2C3C, (78, 44, 60)
-// Red: #522E2A, (82, 46, 42)
-struct ColorFromNotion
+namespace
 {
-    const D2D1_COLOR_F DarkTextDefault = D2D1::ColorF(255 / 255.0f, 255 / 255.0f, 255 / 255.0f, 0.81f);
-    const D2D1_COLOR_F DarkTextGray = D2D1::ColorF(155 / 255.0f, 155 / 255.0f, 155 / 255.0f);
-    const D2D1_COLOR_F DarkTextBrown = D2D1::ColorF(186 / 255.0f, 133 / 255.0f, 111 / 255.0f);
-    const D2D1_COLOR_F DarkTextOrange = D2D1::ColorF(199 / 255.0f, 125 / 255.0f, 72 / 255.0f);
-    const D2D1_COLOR_F DarkTextYellow = D2D1::ColorF(202 / 255.0f, 152 / 255.0f, 72 / 255.0f);
-    const D2D1_COLOR_F DarkTextGreen = D2D1::ColorF(82 / 255.0f, 158 / 255.0f, 114 / 255.0f);
-    const D2D1_COLOR_F DarkTextBlue = D2D1::ColorF(55 / 255.0f, 154 / 255.0f, 211 / 255.0f);
-    const D2D1_COLOR_F DarkTextPurple = D2D1::ColorF(157 / 255.0f, 104 / 255.0f, 211 / 255.0f);
-    const D2D1_COLOR_F DarkTextPink = D2D1::ColorF(209 / 255.0f, 87 / 255.0f, 150 / 255.0f);
-    const D2D1_COLOR_F DarkTextRed = D2D1::ColorF(223 / 255.0f, 84 / 255.0f, 82 / 255.0f);
+struct OverlayCache
+{
+    std::wstring text;
+    std::vector<IDWriteTextLayout *> layouts;
+    std::vector<float> widths;
+    float width = 0.0f;
+    float height = 0.0f;
+    bool valid = false;
 
-    const D2D1_COLOR_F DarkBgDefault = D2D1::ColorF(37 / 255.0f, 37 / 255.0f, 37 / 255.0f, 0.75f);
-    const D2D1_COLOR_F DarkBgGray = D2D1::ColorF(47 / 255.0f, 47 / 255.0f, 47 / 255.0f);
-    const D2D1_COLOR_F DarkBgBrown = D2D1::ColorF(74 / 255.0f, 50 / 255.0f, 40 / 255.0f);
-    const D2D1_COLOR_F DarkBgOrange = D2D1::ColorF(92 / 255.0f, 59 / 255.0f, 35 / 255.0f);
-    const D2D1_COLOR_F DarkBgYellow = D2D1::ColorF(86 / 255.0f, 67 / 255.0f, 40 / 255.0f);
-    const D2D1_COLOR_F DarkBgGreen = D2D1::ColorF(36 / 255.0f, 61 / 255.0f, 48 / 255.0f);
-    const D2D1_COLOR_F DarkBgBlue = D2D1::ColorF(20 / 255.0f, 58 / 255.0f, 78 / 255.0f);
-    const D2D1_COLOR_F DarkBgPurple = D2D1::ColorF(60 / 255.0f, 45 / 255.0f, 73 / 255.0f);
-    const D2D1_COLOR_F DarkBgPink = D2D1::ColorF(78 / 255.0f, 44 / 255.0f, 60 / 255.0f);
-    const D2D1_COLOR_F DarkBgRed = D2D1::ColorF(82 / 255.0f, 46 / 255.0f, 42 / 255.0f);
-
-    const D2D1_COLOR_F DarkOutlineDefault = D2D1::ColorF(86 / 255.0f, 86 / 255.0f, 86 / 255.0f, 0.9f);
-} NotionColors;
-
-std::vector<D2D1_COLOR_F> ColorsVec = {
-    NotionColors.DarkTextRed,     //
-    NotionColors.DarkTextGreen,   //
-    NotionColors.DarkTextDefault, //
-    NotionColors.DarkTextYellow,  //
-    NotionColors.DarkTextBrown,   //
-    NotionColors.DarkTextBlue,    //
-    NotionColors.DarkTextOrange,  //
-    NotionColors.DarkTextPurple,  //
-    NotionColors.DarkTextGray,    //
-    NotionColors.DarkTextPink,    //
+    void Clear()
+    {
+        for (auto *layout : layouts)
+        {
+            if (layout)
+            {
+                layout->Release();
+            }
+        }
+        layouts.clear();
+        widths.clear();
+        text.clear();
+        width = 0.0f;
+        height = 0.0f;
+        valid = false;
+    }
 };
+
+OverlayCache g_cache;
+
+std::vector<D2D1_COLOR_F> RainbowColors()
+{
+    return {
+        D2D1::ColorF(223 / 255.0f, 84 / 255.0f, 82 / 255.0f),
+        D2D1::ColorF(82 / 255.0f, 158 / 255.0f, 114 / 255.0f),
+        GetTheme().overlayText,
+        D2D1::ColorF(202 / 255.0f, 152 / 255.0f, 72 / 255.0f),
+        D2D1::ColorF(186 / 255.0f, 133 / 255.0f, 111 / 255.0f),
+        D2D1::ColorF(55 / 255.0f, 154 / 255.0f, 211 / 255.0f),
+        D2D1::ColorF(199 / 255.0f, 125 / 255.0f, 72 / 255.0f),
+        D2D1::ColorF(157 / 255.0f, 104 / 255.0f, 211 / 255.0f),
+        D2D1::ColorF(155 / 255.0f, 155 / 255.0f, 155 / 255.0f),
+        D2D1::ColorF(209 / 255.0f, 87 / 255.0f, 150 / 255.0f),
+    };
+}
+
+std::pair<float, float> MeasureLayout(IDWriteTextLayout *layout)
+{
+    if (!layout)
+    {
+        return {0.0f, 0.0f};
+    }
+    DWRITE_TEXT_METRICS metrics{};
+    layout->GetMetrics(&metrics);
+    return {metrics.width, metrics.height};
+}
+
+void RebuildCache(const std::wstring &text)
+{
+    g_cache.Clear();
+    g_cache.text = text;
+    if (!pDWriteFactory || !pTextFormat || text.empty())
+    {
+        g_cache.valid = true;
+        return;
+    }
+
+    const auto words = splitString(text);
+    g_cache.layouts.reserve(words.size());
+    g_cache.widths.reserve(words.size());
+    float totalW = 0.0f;
+    float totalH = 0.0f;
+    for (const auto &word : words)
+    {
+        IDWriteTextLayout *layout = nullptr;
+        HRESULT hr = pDWriteFactory->CreateTextLayout(word.c_str(), static_cast<UINT32>(word.size()), pTextFormat, FLT_MAX, FLT_MAX, &layout);
+        if (FAILED(hr) || !layout)
+        {
+            continue;
+        }
+        const auto size = MeasureLayout(layout);
+        g_cache.layouts.push_back(layout);
+        g_cache.widths.push_back(size.first);
+        totalW += size.first;
+        totalH = (std::max)(totalH, size.second);
+    }
+    g_cache.width = totalW;
+    g_cache.height = totalH;
+    g_cache.valid = true;
+}
+
+void EnsureCache()
+{
+    if (!g_cache.valid || g_cache.text != ::KeyStringToCast)
+    {
+        RebuildCache(::KeyStringToCast);
+    }
+}
+} // namespace
 
 bool InitD2DAndDWrite()
 {
-
     HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &pD2DFactory);
     if (FAILED(hr))
+    {
         return false;
+    }
 
     hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown **>(&pDWriteFactory));
     if (FAILED(hr))
+    {
         return false;
+    }
 
-    hr = pDWriteFactory->CreateTextFormat( //
-        ::fontName.c_str(),                //
-        nullptr,                           //
-        DWRITE_FONT_WEIGHT_NORMAL,         //
-        DWRITE_FONT_STYLE_NORMAL,          //
-        DWRITE_FONT_STRETCH_NORMAL,        //
-        24.0f,                             //
-        L"zh-cn",                          //
-        &pTextFormat                       //
-    );
-    if (FAILED(hr))
-        return false;
+    RecreateOverlayTextFormat();
+    return pTextFormat != nullptr;
+}
 
-    return true;
+void RecreateOverlayTextFormat()
+{
+    if (!pDWriteFactory)
+    {
+        return;
+    }
+    if (pTextFormat)
+    {
+        pTextFormat->Release();
+        pTextFormat = nullptr;
+    }
+    pDWriteFactory->CreateTextFormat(::fontName.c_str(), nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, ::KeycastConfig.fontSize, L"zh-cn", &pTextFormat);
+    InvalidateOverlayCache();
 }
 
 bool InitD2DRenderTarget(HWND hwnd)
 {
     if (!pD2DFactory)
+    {
         return false;
+    }
 
-    RECT rc;
+    if (pBrush)
+    {
+        pBrush->Release();
+        pBrush = nullptr;
+    }
+    if (pRenderTarget)
+    {
+        pRenderTarget->Release();
+        pRenderTarget = nullptr;
+    }
+
+    RECT rc{};
     GetClientRect(hwnd, &rc);
-
-    auto renderTargetProps = D2D1::RenderTargetProperties(                    //
-        D2D1_RENDER_TARGET_TYPE_DEFAULT,                                      //
-        D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED) //
-    );
-    auto hwndRenderTargetProps = D2D1::HwndRenderTargetProperties( //
-        hwnd,                                                      //
-        D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top),       //
-        D2D1_PRESENT_OPTIONS_IMMEDIATELY                           //
-    );
-    HRESULT hr = pD2DFactory->CreateHwndRenderTarget( //
-        renderTargetProps,                            //
-        hwndRenderTargetProps,                        //
-        &pRenderTarget                                //
-    );
-
+    const auto renderTargetProps = D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
+    const auto hwndRenderTargetProps = D2D1::HwndRenderTargetProperties(hwnd, D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top), D2D1_PRESENT_OPTIONS_NONE);
+    HRESULT hr = pD2DFactory->CreateHwndRenderTarget(renderTargetProps, hwndRenderTargetProps, &pRenderTarget);
     if (SUCCEEDED(hr))
     {
         hr = pRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &pBrush);
     }
-
     return SUCCEEDED(hr);
+}
+
+void ResizeOverlayRenderTarget(HWND hwnd)
+{
+    if (!pRenderTarget)
+    {
+        InitD2DRenderTarget(hwnd);
+        return;
+    }
+    RECT rc{};
+    GetClientRect(hwnd, &rc);
+    pRenderTarget->Resize(D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top));
+}
+
+void InvalidateOverlayCache()
+{
+    g_cache.Clear();
+}
+
+void ReleaseOverlayCache()
+{
+    g_cache.Clear();
+}
+
+void ReleaseOverlayD2D()
+{
+    ReleaseOverlayCache();
+    if (pBrush)
+    {
+        pBrush->Release();
+        pBrush = nullptr;
+    }
+    if (pRenderTarget)
+    {
+        pRenderTarget->Release();
+        pRenderTarget = nullptr;
+    }
+    if (pTextFormat)
+    {
+        pTextFormat->Release();
+        pTextFormat = nullptr;
+    }
+    if (pDWriteFactory)
+    {
+        pDWriteFactory->Release();
+        pDWriteFactory = nullptr;
+    }
+    if (pD2DFactory)
+    {
+        pD2DFactory->Release();
+        pD2DFactory = nullptr;
+    }
 }
 
 void OnPaint(HWND hwnd)
 {
-    auto textSize = GetTextWidth(pDWriteFactory, pTextFormat, ::KeyStringToCast);
-
-    if (!pRenderTarget)
+    if (!pRenderTarget || !pBrush)
+    {
         return;
+    }
+    if (!IsWindowVisible(hwnd))
+    {
+        ValidateRect(hwnd, nullptr);
+        return;
+    }
 
-    // Prepare size info
-    float textMarginLeft = 5.0f;
-    float textMarginRight = 5.0f;
-    float textMarginTop = 8.0f;
-    float textMarginBottom = 8.0f;
-
-    /* Outline border info */
-    float borderX = 0.0f;
-    float borderY = 0.0f;
-    float borderWidth = textSize.first + textMarginLeft + textMarginRight;
-    float borderHeight = textSize.second + textMarginTop + textMarginBottom;
-    float borderThickness = 3.0f;
-
-    float textX = borderX + textMarginLeft;
-    float textY = borderY + textMarginTop;
-    float textWidth = textSize.first;
-    float textHeight = textSize.second;
-
-    float scale = GetWindowScale();
-    float canvasWidth = (WindowArea.right - WindowArea.left) / scale;
-    float canvasHeight = (WindowArea.bottom - WindowArea.top) / scale;
-    float containerRightMargin = 2.0f;
-    float containerBottomMargin = 2.0f;
-    D2D1_MATRIX_3X2_F translation = D2D1::Matrix3x2F::Translation( //
-        canvasWidth - borderWidth - containerRightMargin,          //
-        canvasHeight - borderHeight - containerBottomMargin        //
-    );
-    pRenderTarget->SetTransform(translation);
+    EnsureCache();
+    const ThemeColors &theme = GetTheme();
 
     pRenderTarget->BeginDraw();
     pRenderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));
+    pRenderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
-    std::vector<std::wstring> words;
-    words = splitString(::KeyStringToCast);
-    if (::KeyStringToCast.empty())
+    if (!::KeyStringToCast.empty() && g_cache.valid && !g_cache.layouts.empty())
     {
-        goto Exit;
+        const float textMarginLeft = 8.0f;
+        const float textMarginRight = 8.0f;
+        const float textMarginTop = 8.0f;
+        const float textMarginBottom = 8.0f;
+        const float borderThickness = ::KeycastConfig.borderThickness;
+        const float radius = ::KeycastConfig.cornerRadius;
+        const float borderWidth = g_cache.width + textMarginLeft + textMarginRight;
+        const float borderHeight = g_cache.height + textMarginTop + textMarginBottom;
+
+        D2D1_ROUNDED_RECT rounded = D2D1::RoundedRect(D2D1::RectF(0.0f, 0.0f, borderWidth, borderHeight), radius, radius);
+        pBrush->SetColor(theme.overlayBg);
+        pRenderTarget->FillRoundedRectangle(rounded, pBrush);
+        if (borderThickness > 0.1f)
+        {
+            const float inset = borderThickness * 0.5f;
+            D2D1_ROUNDED_RECT outline = D2D1::RoundedRect(D2D1::RectF(inset, inset, borderWidth - inset, borderHeight - inset), radius, radius);
+            pBrush->SetColor(theme.overlayBorder);
+            pRenderTarget->DrawRoundedRectangle(outline, pBrush, borderThickness);
+        }
+
+        float curX = textMarginLeft;
+        const float textY = textMarginTop;
+        const auto colors = RainbowColors();
+        const int colorCnt = static_cast<int>(colors.size());
+        for (size_t i = 0; i < g_cache.layouts.size(); ++i)
+        {
+            if (::KeycastConfig.rainbowText)
+            {
+                pBrush->SetColor(colors[static_cast<int>(i) % colorCnt]);
+            }
+            else
+            {
+                pBrush->SetColor(theme.overlayText);
+            }
+            pRenderTarget->DrawTextLayout(D2D1::Point2F(curX, textY), g_cache.layouts[i], pBrush);
+            curX += g_cache.widths[i];
+        }
     }
 
-    // Draw Round Rectangle
-    D2D1_RECT_F borderRect = D2D1::RectF( //
-        borderX,                          //
-        borderY,                          //
-        borderX + borderWidth,            //
-        borderY + borderHeight            //
-    );
-    D2D1_ROUNDED_RECT roundedBorderRect = D2D1::RoundedRect(borderRect, 12.0f, 12.0f);
-    // Fill Round Rectangle
-    pBrush->SetColor(::NotionColors.DarkBgDefault);
-    pRenderTarget->FillRoundedRectangle(roundedBorderRect, pBrush);
-    // Draw Outline
-    pBrush->SetColor(::NotionColors.DarkTextBlue);
-    borderRect = D2D1::RectF(                                          //
-        borderX + borderThickness / 2,                                 //
-        borderY + borderThickness / 2,                                 //
-        borderX + borderThickness / 2 + borderWidth - borderThickness, //
-        borderY + borderThickness / 2 + borderHeight - borderThickness //
-    );
-    roundedBorderRect = D2D1::RoundedRect(borderRect, 12.0f, 12.0f);
-    pRenderTarget->DrawRoundedRectangle( //
-        roundedBorderRect,               //
-        pBrush,                          //
-        borderThickness                  //
-    );
-
-    // Draw Text
-    float curXPos = textX;
-    int i = 0;
-    int colorCnt = ColorsVec.size();
-    for (const auto &word : words)
-    {
-        pBrush->SetColor(ColorsVec[i % colorCnt]);
-        i++;
-        IDWriteTextLayout *pTextLayout = nullptr;
-        pDWriteFactory->CreateTextLayout( //
-            word.c_str(),                 //
-            word.size(),                  //
-            pTextFormat,                  //
-            1000.0f,                      //
-            1000.0f,                      //
-            &pTextLayout);
-        DWRITE_TEXT_METRICS textMetrics;
-        pTextLayout->GetMetrics(&textMetrics);
-        pRenderTarget->DrawTextLayout( //
-            D2D1::Point2F(             //
-                curXPos,               //
-                textY),                //
-            pTextLayout,               //
-            pBrush                     //
-        );
-        curXPos += textMetrics.width;
-        pTextLayout->Release();
-    }
-
-Exit:
     HRESULT hr = pRenderTarget->EndDraw();
     if (hr == D2DERR_RECREATE_TARGET)
     {
-        pRenderTarget->Release();
+        InvalidateOverlayCache();
         InitD2DRenderTarget(hwnd);
     }
 }
 
-std::pair<float, float> GetTextWidth( //
-    IDWriteFactory *pDWriteFactory,   //
-    IDWriteTextFormat *pTextFormat,   //
-    const std::wstring &text          //
-)
+void GetOverlayContentDipSize(float &width, float &height)
 {
-    IDWriteTextLayout *pTextLayout = nullptr;
-    HRESULT hr = pDWriteFactory->CreateTextLayout( //
-        text.c_str(),                              //
-        text.size(),                               //
-        pTextFormat,                               //
-        FLT_MAX,                                   //
-        FLT_MAX,                                   //
-        &pTextLayout                               //
-    );
-    if (FAILED(hr))
+    EnsureCache();
+    if (!g_cache.valid || g_cache.layouts.empty())
     {
-        return std::make_pair(0.0f, 0.0f);
+        width = 32.0f;
+        height = 32.0f;
+        return;
     }
-    DWRITE_TEXT_METRICS textMetrics;
-    pTextLayout->GetMetrics(&textMetrics);
-    pTextLayout->Release();
+    width = g_cache.width + 20.0f;
+    height = g_cache.height + 20.0f;
+}
 
-    return std::make_pair(textMetrics.width, textMetrics.height);
+void RequestOverlayRepaint()
+{
+    if (!::D2DHwnd)
+    {
+        return;
+    }
+    UpdateOverlayWindowPlacement(::D2DHwnd);
+    InvalidateRect(::D2DHwnd, nullptr, FALSE);
 }
 
 bool InitGlobalConfigWithD2D()
 {
-    int i = 1;
-    std::wstring testStr = L"M";
-    auto scale = GetWindowScale();
-    if (scale == 0.0f)
+    if (!pDWriteFactory || !pTextFormat)
     {
         return false;
     }
-    float textSize = scale * (GetTextWidth(pDWriteFactory, pTextFormat, testStr).first);
-    float maxSize = WindowArea.right - WindowArea.left;
-    while (textSize < maxSize)
+    const float scale = GetWindowScale(::D2DHwnd ? ::D2DHwnd : nullptr);
+    if (scale <= 0.0f)
     {
-        textSize = scale * (GetTextWidth(pDWriteFactory, pTextFormat, testStr).first);
-        testStr += L"M";
-        i += 1;
+        return false;
     }
-    testStr = L"M";
-    ::KeycastConfig.maxSize = i - 3;
+
+    MONITORINFO monitorInfo{sizeof(MONITORINFO)};
+    GetMonitorInfo(MonitorFromWindow(::D2DHwnd ? ::D2DHwnd : GetDesktopWindow(), MONITOR_DEFAULTTOPRIMARY), &monitorInfo);
+    const float maxPx = static_cast<float>(monitorInfo.rcWork.right - monitorInfo.rcWork.left) * 0.5f;
+
+    IDWriteTextLayout *layout = nullptr;
+    if (FAILED(pDWriteFactory->CreateTextLayout(L"M", 1, pTextFormat, FLT_MAX, FLT_MAX, &layout)) || !layout)
+    {
+        return false;
+    }
+    const float mWidth = MeasureLayout(layout).first * scale;
+    layout->Release();
+    if (mWidth <= 0.1f)
+    {
+        return false;
+    }
+    ::KeycastConfig.maxSize = (std::max)(8, static_cast<int>(maxPx / mWidth) - 3);
     return true;
 }

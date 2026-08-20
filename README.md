@@ -12,9 +12,10 @@ Notice: Please make sure you open this settings before you start to compile,
 
 ![](https://github.com/user-attachments/assets/6fd14c4e-b09c-421e-8263-f35b8251a732)
 
-Then, generate the config files,
+Then initialize submodules and generate the config files:
 
 ```powershell
+git submodule update --init --recursive
 python .\scripts\prepare_env.py
 ```
 

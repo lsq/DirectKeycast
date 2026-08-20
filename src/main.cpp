@@ -3,7 +3,10 @@
 #include "d2d.h"
 #include "globals.h"
 #include "hook.h"
+#include "settings.h"
+#include "tray_menu.h"
 #include "window.h"
+#include "msimeui/Application.h"
 #include <winuser.h>
 
 #define HOTKEY_ID 1
@@ -13,20 +16,32 @@ CTimer g_timerShow;
 
 void OnHideWindow()
 {
-    ShowWindow(::D2DHwnd, SW_HIDE);
-    ::KeyStringToCast = L"";
+    if (::D2DHwnd)
+    {
+        PostMessage(::D2DHwnd, WM_APP_HIDE_OVERLAY, 0, 0);
+    }
 }
 
 void OnShowWindow()
 {
-    ShowWindow(::D2DHwnd, SW_SHOW);
+    if (::D2DHwnd && ::KeycastConfig.enabled)
+    {
+        PostMessage(::D2DHwnd, WM_APP_SHOW_OVERLAY, 0, 0);
+    }
 }
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
 {
-    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    UNREFERENCED_PARAMETER(hPrevInstance);
+    UNREFERENCED_PARAMETER(lpCmdLine);
+    UNREFERENCED_PARAMETER(nCmdShow);
 
-    // Register Ctrl + Alt + Shift + F12 hotkey
+    const bool msimeuiReady = msimeui::Application::Initialize();
+    if (!msimeuiReady)
+    {
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
+
     UnregisterHotKey(nullptr, HOTKEY_ID);
     if (!RegisterHotKey(nullptr, HOTKEY_ID, MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F12))
     {
@@ -34,28 +49,24 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
         return 1;
     }
 
-    //
-    // Init config
-    //
     ::InitializeConfig();
 
-    HHOOK kbd = SetWindowsHookEx(WH_KEYBOARD_LL, &KBDHook, 0, 0);
-    HHOOK mouse = SetWindowsHookEx(WH_MOUSE_LL, &MOUSEHook, 0, 0);
-
     if (!InitD2DAndDWrite())
+    {
         return -1;
+    }
 
     HWND hwnd = CreateTransparentWindow(hInstance);
-
     if (!hwnd)
+    {
         return -1;
-
+    }
     D2DHwnd = hwnd;
 
-    ShowWindow(hwnd, nCmdShow);
-    UpdateWindow(hwnd);
-
+    CreateTrayMenuWindow(hInstance);
+    ShowWindow(hwnd, SW_HIDE);
     AddTrayIcon(hwnd);
+    StartInputCapture(hwnd);
 
     g_timerHide.OnTimedEvent = OnHideWindow;
     g_timerShow.OnTimedEvent = OnShowWindow;
@@ -65,28 +76,21 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     {
         if (msg.message == WM_HOTKEY && msg.wParam == HOTKEY_ID)
         {
-            break; // Exit
+            break;
         }
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
 
-    // Release hotkey
     UnregisterHotKey(nullptr, HOTKEY_ID);
-
-    if (pBrush)
-        pBrush->Release();
-    if (pRenderTarget)
-        pRenderTarget->Release();
-    if (pDWriteFactory)
-        pDWriteFactory->Release();
-    if (pTextFormat)
-        pTextFormat->Release();
-    if (pD2DFactory)
-        pD2DFactory->Release();
-
-    // Uninstall hook
-    UnhookWindowsHookEx(mouse);
-    UnhookWindowsHookEx(kbd);
+    StopInputCapture();
+    CloseSettingsWindow();
+    DestroyTrayMenuWindow();
+    RemoveTrayIcon();
+    ReleaseOverlayD2D();
+    if (msimeuiReady)
+    {
+        msimeui::Application::Shutdown();
+    }
     return (int)msg.wParam;
 }

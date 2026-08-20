@@ -1,6 +1,9 @@
 #include "utils.h"
 #include "globals.h"
+#include "theme.h"
+#include <algorithm>
 #include <minwindef.h>
+#include <stdexcept>
 #include <winuser.h>
 
 std::wstring string_to_wstring(const std::string &str)
@@ -226,9 +229,13 @@ std::vector<std::wstring> splitString(const std::wstring &input)
 
 FLOAT GetWindowScale()
 {
-    UINT dpi = GetDpiForSystem();
-    FLOAT scale = dpi / 96.0f;
-    return scale;
+    return GetWindowScale(nullptr);
+}
+
+FLOAT GetWindowScale(HWND hwnd)
+{
+    const UINT dpi = hwnd ? GetDpiForWindow(hwnd) : GetDpiForSystem();
+    return dpi / 96.0f;
 }
 
 int CALLBACK EnumFontFamExProc(ENUMLOGFONTEX *lpelfe, NEWTEXTMETRICEX *lpntme, DWORD FontType, LPARAM lParam)
@@ -284,4 +291,29 @@ int GetPrimaryMonitorHeight()
 
     int height = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
     return height;
+}
+
+void DrawToggle(ID2D1RenderTarget *rt, ID2D1SolidColorBrush *brush, D2D1_RECT_F rect, bool on)
+{
+    if (!rt || !brush)
+    {
+        return;
+    }
+    const ThemeColors &theme = GetTheme();
+    const float h = rect.bottom - rect.top;
+    const float radius = h * 0.5f;
+    D2D1_ROUNDED_RECT pill = D2D1::RoundedRect(rect, radius, radius);
+    brush->SetColor(on ? theme.accent : theme.toggleOff);
+    rt->FillRoundedRectangle(pill, brush);
+
+    const float knob = (std::max)(2.0f, h - 2.0f);
+    const float x = on ? rect.right - 1.0f - knob : rect.left + 1.0f;
+    const D2D1_ELLIPSE ellipse = D2D1::Ellipse(D2D1::Point2F(x + knob * 0.5f, (rect.top + rect.bottom) * 0.5f), knob * 0.5f, knob * 0.5f);
+    brush->SetColor(theme.knob);
+    rt->FillEllipse(ellipse, brush);
+}
+
+bool HitToggle(const D2D1_RECT_F &rect, float x, float y)
+{
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }

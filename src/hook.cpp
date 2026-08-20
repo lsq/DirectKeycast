@@ -1,24 +1,19 @@
 #include "hook.h"
 #include "CTimer.h"
+#include "d2d.h"
 #include "globals.h"
+#include "settings.h"
+#include "tray_menu.h"
 #include "utils.h"
-#include <minwindef.h>
 #include <numeric>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
+#include <vector>
 #include <winuser.h>
 
 extern CTimer g_timerHide;
 extern CTimer g_timerShow;
 
-//
-// We need 8 bits to store our modifier keys state
-// Left Shift, Right Shift
-// Left Ctrl, Right Ctrl
-// Left Alt, Right Alt
-// Left Windows, Right Windows
-//
 enum ModifierKey
 {
     LShift,
@@ -30,6 +25,7 @@ enum ModifierKey
     LWindows,
     RWindows
 };
+
 std::unordered_map<DWORD, ModifierKey> VkCodeMap = {
     {VK_LSHIFT, LShift},  //
     {VK_RSHIFT, RShift},  //
@@ -53,104 +49,237 @@ void ClearOneModifier(DWORD vkCode);
 void ClearAllModifiers();
 
 bool IsOnlyOneShiftPressed();
-
 void appendCurrentKeyAndUpdateWnd(std::wstring curKeyStr);
 
-static int fadeTime = 1500;
+namespace
+{
+constexpr int kFadeFallbackMs = 1500;
+
+HWND g_uiHwnd = nullptr;
+HANDLE g_hookThread = nullptr;
+DWORD g_hookThreadId = 0;
+HANDLE g_hookReady = nullptr;
+HHOOK g_kbdHook = nullptr;
+bool g_rawRegistered = false;
+
+bool ShouldIgnoreMouseCast(POINT pt)
+{
+    return IsPointInTrayMenu(pt) || IsPointInSettingsWindow(pt);
+}
 
 LRESULT CALLBACK KBDHook(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode < 0)
+    if (nCode == HC_ACTION && g_uiHwnd)
     {
-        goto KBDNext;
+        const auto *s = reinterpret_cast<KBDLLHOOKSTRUCT *>(lParam);
+        PostMessageW(g_uiHwnd, WM_APP_LLKEY, wParam, static_cast<LPARAM>(s->vkCode));
+    }
+    return CallNextHookEx(g_kbdHook, nCode, wParam, lParam);
+}
+
+DWORD WINAPI HookThreadProc(LPVOID)
+{
+    g_kbdHook = SetWindowsHookExW(WH_KEYBOARD_LL, KBDHook, GetModuleHandleW(nullptr), 0);
+    if (g_hookReady)
+    {
+        SetEvent(g_hookReady);
     }
 
-    ShowWindow(::D2DHwnd, SW_SHOW);           // Show Window
-    g_timerHide.Start(fadeTime, false, true); // Hide after 3 seconds
-    KBDLLHOOKSTRUCT *s = reinterpret_cast<KBDLLHOOKSTRUCT *>(lParam);
+    MSG msg;
+    while (GetMessageW(&msg, nullptr, 0, 0) > 0)
+    {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+
+    if (g_kbdHook)
+    {
+        UnhookWindowsHookEx(g_kbdHook);
+        g_kbdHook = nullptr;
+    }
+    return 0;
+}
+
+void CastMouseButton(const wchar_t *label, POINT pt)
+{
+    if (!::KeycastConfig.showMouse || ShouldIgnoreMouseCast(pt))
+    {
+        return;
+    }
+    PulseOverlay();
+    appendCurrentKeyAndUpdateWnd(label);
+}
+} // namespace
+
+void PulseOverlay()
+{
+    if (!::KeycastConfig.enabled || !::D2DHwnd)
+    {
+        return;
+    }
+    if (!IsWindowVisible(::D2DHwnd))
+    {
+        ShowWindow(::D2DHwnd, SW_SHOWNOACTIVATE);
+    }
+    g_timerHide.Start(::KeycastConfig.fadeMs > 0 ? ::KeycastConfig.fadeMs : kFadeFallbackMs, false, true);
+}
+
+void UpdateMouseRawInput()
+{
+    if (!g_uiHwnd)
+    {
+        return;
+    }
+    const bool need = ::KeycastConfig.showMouse || IsTrayMenuVisible();
+    if (need == g_rawRegistered)
+    {
+        return;
+    }
+
+    RAWINPUTDEVICE rid{};
+    rid.usUsagePage = 0x01;
+    rid.usUsage = 0x02;
+    if (need)
+    {
+        rid.dwFlags = RIDEV_INPUTSINK;
+        rid.hwndTarget = g_uiHwnd;
+    }
+    else
+    {
+        rid.dwFlags = RIDEV_REMOVE;
+        rid.hwndTarget = nullptr;
+    }
+    if (RegisterRawInputDevices(&rid, 1, sizeof(rid)))
+    {
+        g_rawRegistered = need;
+    }
+}
+
+void StartInputCapture(HWND hwnd)
+{
+    g_uiHwnd = hwnd;
+    UpdateMouseRawInput();
+
+    if (g_hookThread)
+    {
+        return;
+    }
+    g_hookReady = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    g_hookThread = CreateThread(nullptr, 0, HookThreadProc, nullptr, 0, &g_hookThreadId);
+    if (g_hookThread && g_hookReady)
+    {
+        WaitForSingleObject(g_hookReady, 3000);
+    }
+}
+
+void StopInputCapture()
+{
+    if (g_rawRegistered)
+    {
+        RAWINPUTDEVICE rid{};
+        rid.usUsagePage = 0x01;
+        rid.usUsage = 0x02;
+        rid.dwFlags = RIDEV_REMOVE;
+        rid.hwndTarget = nullptr;
+        RegisterRawInputDevices(&rid, 1, sizeof(rid));
+        g_rawRegistered = false;
+    }
+
+    if (g_hookThreadId)
+    {
+        PostThreadMessageW(g_hookThreadId, WM_QUIT, 0, 0);
+    }
+    if (g_hookThread)
+    {
+        WaitForSingleObject(g_hookThread, 3000);
+        CloseHandle(g_hookThread);
+        g_hookThread = nullptr;
+        g_hookThreadId = 0;
+    }
+    if (g_hookReady)
+    {
+        CloseHandle(g_hookReady);
+        g_hookReady = nullptr;
+    }
+    g_uiHwnd = nullptr;
+}
+
+void HandlePostedKeyEvent(WPARAM wParam, DWORD vkCode)
+{
+    KBDLLHOOKSTRUCT info{};
+    info.vkCode = vkCode;
     switch (wParam)
     {
     case WM_KEYDOWN:
-    case WM_SYSKEYDOWN: {
-        HandleKeyDown(s);
+    case WM_SYSKEYDOWN:
+        PulseOverlay();
+        HandleKeyDown(&info);
         break;
-    }
     case WM_KEYUP:
-    case WM_SYSKEYUP: {
-        HandleKeyUp(s);
+    case WM_SYSKEYUP:
+        HandleKeyUp(&info);
         break;
-    }
     default:
         break;
     }
-KBDNext:
-    return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
-LRESULT CALLBACK MOUSEHook(int nCode, WPARAM wParam, LPARAM lParam)
+void HandleRawMouseInput(HRAWINPUT hRaw)
 {
-    if (nCode < 0)
+    RAWINPUT raw{};
+    UINT size = sizeof(raw);
+    if (GetRawInputData(hRaw, RID_INPUT, &raw, &size, sizeof(RAWINPUTHEADER)) == static_cast<UINT>(-1))
     {
-        goto MOUSENext;
+        return;
     }
-    static std::unordered_set<WPARAM> MouseEvents{WM_LBUTTONDOWN, WM_RBUTTONDOWN, WM_LBUTTONUP, WM_RBUTTONUP, WM_MBUTTONDOWN, WM_RBUTTONUP, WM_MOUSEWHEEL};
-    if (MouseEvents.count(wParam))
+    if (raw.header.dwType != RIM_TYPEMOUSE)
     {
-
-        ShowWindow(::D2DHwnd, SW_SHOW);           // Show Window
-        g_timerHide.Start(fadeTime, false, true); // Hide after 3 seconds
-    }
-    switch (wParam)
-    {
-    case WM_LBUTTONDOWN: {
-        std::wstring curKeyStr = L"<LBtnDown>";
-        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
-        break;
-    }
-    case WM_RBUTTONDOWN: {
-        std::wstring curKeyStr = L"<RBtnDown>";
-        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
-        break;
-    }
-    case WM_MBUTTONDOWN: {
-        std::wstring curKeyStr = L"<MBtnDown>";
-        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
-        break;
-    }
-    case WM_LBUTTONUP: {
-        std::wstring curKeyStr = L"<LBtnUp>";
-        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
-        break;
-    }
-    case WM_RBUTTONUP: {
-        std::wstring curKeyStr = L"<RBtnUp>";
-        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
-        break;
-    }
-    case WM_MBUTTONUP: {
-        std::wstring curKeyStr = L"<MBtnUp>";
-        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
-        break;
+        return;
     }
 
-    case WM_MOUSEWHEEL: {
-        std::wstring curKeyStr;
-        auto pMouse = reinterpret_cast<MSLLHOOKSTRUCT *>(lParam);
-        int delta = GET_WHEEL_DELTA_WPARAM(pMouse->mouseData);
-        if (delta > 0)
-        {
-            curKeyStr = L"<ScrollUp>";
-        }
-        else if (delta < 0)
-        {
-            curKeyStr = L"<ScrollDown>";
-        }
-        ::appendCurrentKeyAndUpdateWnd(curKeyStr);
-        break;
+    const USHORT flags = raw.data.mouse.usButtonFlags;
+    if (flags == 0)
+    {
+        return;
     }
+
+    POINT pt{};
+    GetCursorPos(&pt);
+
+    if ((flags & (RI_MOUSE_LEFT_BUTTON_DOWN | RI_MOUSE_RIGHT_BUTTON_DOWN | RI_MOUSE_MIDDLE_BUTTON_DOWN)) && IsTrayMenuVisible() && !IsPointInTrayMenu(pt))
+    {
+        PostMessageW(::D2DHwnd, WM_APP_HIDE_TRAY_MENU, 0, 0);
     }
-MOUSENext:
-    return CallNextHookEx(NULL, nCode, wParam, lParam);
+
+    if (flags & RI_MOUSE_LEFT_BUTTON_DOWN)
+    {
+        CastMouseButton(L"<LBtnDown>", pt);
+    }
+    if (flags & RI_MOUSE_LEFT_BUTTON_UP)
+    {
+        CastMouseButton(L"<LBtnUp>", pt);
+    }
+    if (flags & RI_MOUSE_RIGHT_BUTTON_DOWN)
+    {
+        CastMouseButton(L"<RBtnDown>", pt);
+    }
+    if (flags & RI_MOUSE_RIGHT_BUTTON_UP)
+    {
+        CastMouseButton(L"<RBtnUp>", pt);
+    }
+    if (flags & RI_MOUSE_MIDDLE_BUTTON_DOWN)
+    {
+        CastMouseButton(L"<MBtnDown>", pt);
+    }
+    if (flags & RI_MOUSE_MIDDLE_BUTTON_UP)
+    {
+        CastMouseButton(L"<MBtnUp>", pt);
+    }
+    if (flags & RI_MOUSE_WHEEL)
+    {
+        const short delta = static_cast<short>(raw.data.mouse.usButtonData);
+        CastMouseButton(delta > 0 ? L"<ScrollUp>" : L"<ScrollDown>", pt);
+    }
 }
 
 void HandleKeyDown(const KBDLLHOOKSTRUCT *s)
@@ -167,17 +296,15 @@ void HandleKeyDown(const KBDLLHOOKSTRUCT *s)
     }
     if (ModifierKeyState > 0)
     {
-        // Only Shift Key is pressed, and current key is alpha chars or numbers
         if (IsOnlyOneShiftPressed() && KeyCastMapOnShift().count(vkeyCode))
         {
             auto curKeyStr = KeyCastMapOnShift().at(vkeyCode);
-            if (::KeyStringToCast.size() > ::KeycastConfig.maxSize | ::KeyStringToCast.size() + curKeyStr.size() > ::KeycastConfig.maxSize)
+            if (::KeyStringToCast.size() > static_cast<size_t>(::KeycastConfig.maxSize) || ::KeyStringToCast.size() + curKeyStr.size() > static_cast<size_t>(::KeycastConfig.maxSize))
                 ::KeyStringToCast = L"";
             ::KeyStringToCast += curKeyStr;
-            InvalidateRect(::D2DHwnd, nullptr, FALSE);
+            RequestOverlayRepaint();
             return;
         }
-        // Combination Key
         std::vector<std::wstring> modifierList;
         if ((1 << LCtrl) & ::ModifierKeyState)
         {
@@ -282,7 +409,6 @@ void ClearAllModifiers()
     ::ModifierKeyState &= 0;
 }
 
-// We do not consider two shift keys are pressed at the same time
 bool IsOnlyOneShiftPressed()
 {
     UINT state = 0;
@@ -306,6 +432,10 @@ bool IsOnlyOneShiftPressed()
 
 void appendCurrentKeyAndUpdateWnd(std::wstring curKeyStr)
 {
+    if (!::KeycastConfig.enabled)
+    {
+        return;
+    }
     static std::wstring lastKey = L"";
     static int counter = 1;
     std::wstring curStrToBeAppend;
@@ -327,21 +457,17 @@ void appendCurrentKeyAndUpdateWnd(std::wstring curKeyStr)
             ::KeyStringToCast = ::KeyStringToCast.substr(0, pos);
             curStrToBeAppend = curKeyStr.substr(0, curKeyStr.size() - 1) + L"x" + std::to_wstring(counter) + L">";
         }
-        else
-        {
-            // TODO: error handle
-        }
     }
     else
     {
         counter = 1;
         curStrToBeAppend = curKeyStr;
     }
-    if (::KeyStringToCast.size() + curStrToBeAppend.size() > ::KeycastConfig.maxSize)
+    if (::KeyStringToCast.size() + curStrToBeAppend.size() > static_cast<size_t>(::KeycastConfig.maxSize))
     {
         ::KeyStringToCast = L"";
     }
     ::KeyStringToCast += curStrToBeAppend;
-    InvalidateRect(::D2DHwnd, nullptr, FALSE);
+    RequestOverlayRepaint();
     lastKey = curKeyStr;
 }
