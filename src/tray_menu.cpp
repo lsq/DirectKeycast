@@ -23,14 +23,14 @@
 
 namespace
 {
-// Matched to Metasequoia IME tray menu HTML (webview2/menu/default.html).
+// Inset 6px on all sides; item radius stays concentric with the 8px chrome.
 constexpr float kFontSizeDip = 14.0f;
-constexpr float kMenuPadYDip = kFontSizeDip * 0.2f;
-constexpr float kItemPadDip = kFontSizeDip * 0.4f;
-constexpr float kItemMarginXDip = 6.0f;
-constexpr float kItemMarginYDip = 1.0f;
-constexpr float kItemRadiusDip = 6.0f;
+constexpr float kBorderStrokeDip = 1.0f;
+constexpr float kMenuPadDip = 6.0f;
+constexpr float kItemGapDip = 2.0f;
 constexpr float kMenuRadiusDip = 8.0f;
+constexpr float kItemRadiusDip = kMenuRadiusDip - kMenuPadDip;
+constexpr float kItemPadDip = 6.0f;
 constexpr float kIconSizeDip = 18.0f;
 constexpr float kIconGapDip = 8.0f;
 constexpr float kToggleWidthDip = 32.0f;
@@ -197,7 +197,6 @@ class TrayMenuItem : public msimeui::Visual
     TrayMenuItem(std::wstring text, MenuIcon icon, bool toggle)
         : text_(std::move(text)), icon_(icon), toggle_(toggle)
     {
-        SetMargin({kItemMarginXDip, kItemMarginYDip, kItemMarginXDip, kItemMarginYDip});
     }
 
     void SetOnClick(ClickHandler handler)
@@ -351,6 +350,7 @@ class TrayMenuItem : public msimeui::Visual
 std::unique_ptr<msimeui::Window> g_window;
 std::shared_ptr<TrayMenuItem> g_enabledItem;
 bool g_visible = false;
+bool g_builtForLight = false;
 
 int MenuWidthPx(UINT dpi)
 {
@@ -359,8 +359,8 @@ int MenuWidthPx(UINT dpi)
 
 int MenuHeightPx(UINT dpi)
 {
-    const float height = 2.0f + kMenuPadYDip * 2.0f +
-                         (kItemHeightDip + kItemMarginYDip * 2.0f) * static_cast<float>(kItemCount);
+    const float height = kBorderStrokeDip * 2.0f + kMenuPadDip * 2.0f + kItemHeightDip * static_cast<float>(kItemCount) +
+                         kItemGapDip * static_cast<float>(kItemCount - 1);
     return DipToPxForDpi(height, dpi);
 }
 
@@ -379,12 +379,16 @@ void BuildMenuScene()
     }
 
     const MenuPalette palette = MakePalette();
-    auto stack = std::make_shared<msimeui::StackPanel>(0.0f);
-    stack->SetPadding({0.0f, kMenuPadYDip, 0.0f, kMenuPadYDip});
+    auto stack = std::make_shared<msimeui::StackPanel>(kItemGapDip);
 
     g_enabledItem = std::make_shared<TrayMenuItem>(L"显示按键", MenuIcon::Keyboard, true);
     g_enabledItem->SetChecked(::KeycastConfig.enabled);
-    g_enabledItem->SetOnClick([]() { PersistEnabled(g_enabledItem && g_enabledItem->IsChecked()); });
+    g_enabledItem->SetOnClick([]() {
+        if (g_enabledItem)
+        {
+            PersistEnabled(g_enabledItem->IsChecked());
+        }
+    });
 
     auto settingsItem = std::make_shared<TrayMenuItem>(L"设置", MenuIcon::Gear, false);
     settingsItem->SetOnClick([]() {
@@ -412,16 +416,20 @@ void BuildMenuScene()
     msimeui::Brush chrome;
     chrome.fill = palette.background;
     chrome.stroke = palette.border;
-    chrome.strokeWidth = 1.0f;
+    chrome.strokeWidth = kBorderStrokeDip;
     chrome.radiusX = kMenuRadiusDip;
     chrome.radiusY = kMenuRadiusDip;
     auto root = std::make_shared<msimeui::Border>(chrome, stack);
+    root->SetPadding(kMenuPadDip);
+    root->SetHorizontalAlignment(msimeui::HorizontalAlignment::Stretch);
+    root->SetVerticalAlignment(msimeui::VerticalAlignment::Stretch);
 
     msimeui::Theme ui = msimeui::ThemeManager::GetCurrent();
     ui.windowBackground = palette.background;
     ui.uiFontFamily = L"Microsoft YaHei UI";
     msimeui::ThemeManager::SetCurrent(ui);
 
+    g_builtForLight = IsLightThemeResolved();
     auto scene = std::make_unique<msimeui::Scene>();
     scene->SetRoot(root);
     g_window->SetScene(std::move(scene));
@@ -546,7 +554,14 @@ void RefreshTrayMenuTheme()
         return;
     }
     ApplyImmersiveDarkMode(g_window->GetHandle(), !IsLightThemeResolved());
-    BuildMenuScene();
+    if (!g_enabledItem || g_builtForLight != IsLightThemeResolved())
+    {
+        BuildMenuScene();
+    }
+    else
+    {
+        g_enabledItem->SetChecked(::KeycastConfig.enabled);
+    }
     g_window->Invalidate();
 }
 

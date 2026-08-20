@@ -246,9 +246,13 @@ void HandleRawMouseInput(HRAWINPUT hRaw)
     POINT pt{};
     GetCursorPos(&pt);
 
-    if ((flags & (RI_MOUSE_LEFT_BUTTON_DOWN | RI_MOUSE_RIGHT_BUTTON_DOWN | RI_MOUSE_MIDDLE_BUTTON_DOWN)) && IsTrayMenuVisible() && !IsPointInTrayMenu(pt))
+    if ((flags & (RI_MOUSE_LEFT_BUTTON_DOWN | RI_MOUSE_RIGHT_BUTTON_DOWN | RI_MOUSE_MIDDLE_BUTTON_DOWN)) && IsTrayMenuVisible())
     {
-        PostMessageW(::D2DHwnd, WM_APP_HIDE_TRAY_MENU, 0, 0);
+        const HWND hit = WindowFromPoint(pt);
+        if (hit != ::TrayMenuHwnd && !IsPointInTrayMenu(pt))
+        {
+            PostMessageW(::D2DHwnd, WM_APP_HIDE_TRAY_MENU, 0, 0);
+        }
     }
 
     if (flags & RI_MOUSE_LEFT_BUTTON_DOWN)
