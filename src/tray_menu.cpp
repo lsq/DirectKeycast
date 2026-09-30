@@ -347,10 +347,39 @@ class TrayMenuItem : public msimeui::Visual
     ClickHandler onClick_;
 };
 
+// Rounded menu background. Colors are read at render time so a theme switch only
+// needs a repaint; replacing the scene would leave msimeui::Window with dangling
+// hovered/captured visual pointers.
+class MenuChrome : public msimeui::Container
+{
+  public:
+    explicit MenuChrome(std::shared_ptr<msimeui::Visual> child) : msimeui::Container(std::move(child))
+    {
+    }
+
+    void Render(msimeui::DeviceResources &deviceResources) override
+    {
+        ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+        const MenuPalette palette = MakePalette();
+        ID2D1SolidColorBrush *fill = deviceResources.GetSolidColorBrush(palette.background);
+        ID2D1SolidColorBrush *stroke = deviceResources.GetSolidColorBrush(palette.border);
+        if (target && fill && stroke)
+        {
+            const float inset = kBorderStrokeDip * 0.5f;
+            const D2D1_ROUNDED_RECT rect =
+                D2D1::RoundedRect(D2D1::RectF(bounds_.x + inset, bounds_.y + inset, bounds_.x + bounds_.width - inset,
+                                              bounds_.y + bounds_.height - inset),
+                                  kMenuRadiusDip, kMenuRadiusDip);
+            target->FillRoundedRectangle(rect, fill);
+            target->DrawRoundedRectangle(rect, stroke, kBorderStrokeDip);
+        }
+        msimeui::Container::Render(deviceResources);
+    }
+};
+
 std::unique_ptr<msimeui::Window> g_window;
 std::shared_ptr<TrayMenuItem> g_enabledItem;
 bool g_visible = false;
-bool g_builtForLight = false;
 
 int MenuWidthPx(UINT dpi)
 {
@@ -364,13 +393,6 @@ int MenuHeightPx(UINT dpi)
     return DipToPxForDpi(height, dpi);
 }
 
-void PersistEnabled(bool enabled)
-{
-    ::KeycastConfig.enabled = enabled;
-    SaveAppConfig();
-    ApplyConfigToRuntime();
-}
-
 void BuildMenuScene()
 {
     if (!g_window)
@@ -378,7 +400,6 @@ void BuildMenuScene()
         return;
     }
 
-    const MenuPalette palette = MakePalette();
     auto stack = std::make_shared<msimeui::StackPanel>(kItemGapDip);
 
     g_enabledItem = std::make_shared<TrayMenuItem>(L"显示按键", MenuIcon::Keyboard, true);
@@ -386,7 +407,7 @@ void BuildMenuScene()
     g_enabledItem->SetOnClick([]() {
         if (g_enabledItem)
         {
-            PersistEnabled(g_enabledItem->IsChecked());
+            SetOverlayEnabled(g_enabledItem->IsChecked());
         }
     });
 
@@ -413,23 +434,11 @@ void BuildMenuScene()
     stack->AddChild(aboutItem);
     stack->AddChild(exitItem);
 
-    msimeui::Brush chrome;
-    chrome.fill = palette.background;
-    chrome.stroke = palette.border;
-    chrome.strokeWidth = kBorderStrokeDip;
-    chrome.radiusX = kMenuRadiusDip;
-    chrome.radiusY = kMenuRadiusDip;
-    auto root = std::make_shared<msimeui::Border>(chrome, stack);
+    auto root = std::make_shared<MenuChrome>(stack);
     root->SetPadding(kMenuPadDip);
     root->SetHorizontalAlignment(msimeui::HorizontalAlignment::Stretch);
     root->SetVerticalAlignment(msimeui::VerticalAlignment::Stretch);
 
-    msimeui::Theme ui = msimeui::ThemeManager::GetCurrent();
-    ui.windowBackground = palette.background;
-    ui.uiFontFamily = L"Microsoft YaHei UI";
-    msimeui::ThemeManager::SetCurrent(ui);
-
-    g_builtForLight = IsLightThemeResolved();
     auto scene = std::make_unique<msimeui::Scene>();
     scene->SetRoot(root);
     g_window->SetScene(std::move(scene));
@@ -554,11 +563,7 @@ void RefreshTrayMenuTheme()
         return;
     }
     ApplyImmersiveDarkMode(g_window->GetHandle(), !IsLightThemeResolved());
-    if (!g_enabledItem || g_builtForLight != IsLightThemeResolved())
-    {
-        BuildMenuScene();
-    }
-    else
+    if (g_enabledItem)
     {
         g_enabledItem->SetChecked(::KeycastConfig.enabled);
     }

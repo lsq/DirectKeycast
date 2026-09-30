@@ -39,6 +39,15 @@ inline struct AppConfig
     std::wstring position = L"bottom-right";
 } KeycastConfig;
 
+// Global hotkeys (Ctrl + Alt + Shift + ...), registered in wWinMain.
+inline constexpr int HOTKEY_ID_EXIT = 1;
+inline constexpr int HOTKEY_ID_TOGGLE = 2;
+inline constexpr UINT HOTKEY_MODIFIERS = MOD_CONTROL | MOD_ALT | MOD_SHIFT | MOD_NOREPEAT;
+inline constexpr UINT HOTKEY_VK_EXIT = VK_F12;
+inline constexpr UINT HOTKEY_VK_TOGGLE = VK_F11;
+inline bool ExitHotkeyRegistered = false;
+inline bool ToggleHotkeyRegistered = false;
+
 inline constexpr UINT WM_APP_HIDE_OVERLAY = WM_APP + 10;
 inline constexpr UINT WM_APP_SHOW_OVERLAY = WM_APP + 11;
 inline constexpr UINT WM_APP_HIDE_TRAY_MENU = WM_APP + 12;

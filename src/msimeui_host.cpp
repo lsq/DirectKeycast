@@ -6,6 +6,12 @@
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
+#ifndef DWMWA_CAPTION_COLOR
+#define DWMWA_CAPTION_COLOR 35
+#endif
+#ifndef DWMWA_TEXT_COLOR
+#define DWMWA_TEXT_COLOR 36
+#endif
 
 #pragma comment(lib, "shcore.lib")
 
@@ -89,6 +95,17 @@ void ApplyImmersiveDarkMode(HWND hwnd, bool dark)
     }
     BOOL value = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+}
+
+void ApplyCaptionColors(HWND hwnd, COLORREF caption, COLORREF text)
+{
+    if (!hwnd)
+    {
+        return;
+    }
+    // Windows 11 only; older builds ignore the attributes and keep the default caption.
+    DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &caption, sizeof(caption));
+    DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, &text, sizeof(text));
 }
 
 UINT MonitorDpiFromPoint(POINT pt)

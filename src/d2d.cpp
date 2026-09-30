@@ -38,22 +38,6 @@ struct OverlayCache
 
 OverlayCache g_cache;
 
-std::vector<D2D1_COLOR_F> RainbowColors()
-{
-    return {
-        D2D1::ColorF(223 / 255.0f, 84 / 255.0f, 82 / 255.0f),
-        D2D1::ColorF(82 / 255.0f, 158 / 255.0f, 114 / 255.0f),
-        GetTheme().overlayText,
-        D2D1::ColorF(202 / 255.0f, 152 / 255.0f, 72 / 255.0f),
-        D2D1::ColorF(186 / 255.0f, 133 / 255.0f, 111 / 255.0f),
-        D2D1::ColorF(55 / 255.0f, 154 / 255.0f, 211 / 255.0f),
-        D2D1::ColorF(199 / 255.0f, 125 / 255.0f, 72 / 255.0f),
-        D2D1::ColorF(157 / 255.0f, 104 / 255.0f, 211 / 255.0f),
-        D2D1::ColorF(155 / 255.0f, 155 / 255.0f, 155 / 255.0f),
-        D2D1::ColorF(209 / 255.0f, 87 / 255.0f, 150 / 255.0f),
-    };
-}
-
 std::pair<float, float> MeasureLayout(IDWriteTextLayout *layout)
 {
     if (!layout)
@@ -107,6 +91,24 @@ void EnsureCache()
     }
 }
 } // namespace
+
+std::vector<D2D1_COLOR_F> GetOverlayTextColors()
+{
+    // clang-format off
+    return {
+        D2D1::ColorF(223 / 255.0f, 84 / 255.0f, 82 / 255.0f),
+        D2D1::ColorF(82 / 255.0f, 158 / 255.0f, 114 / 255.0f),
+        GetTheme().overlayText,
+        D2D1::ColorF(202 / 255.0f, 152 / 255.0f, 72 / 255.0f),
+        D2D1::ColorF(186 / 255.0f, 133 / 255.0f, 111 / 255.0f),
+        D2D1::ColorF(55 / 255.0f, 154 / 255.0f, 211 / 255.0f),
+        D2D1::ColorF(199 / 255.0f, 125 / 255.0f, 72 / 255.0f),
+        D2D1::ColorF(157 / 255.0f, 104 / 255.0f, 211 / 255.0f),
+        D2D1::ColorF(155 / 255.0f, 155 / 255.0f, 155 / 255.0f),
+        D2D1::ColorF(209 / 255.0f, 87 / 255.0f, 150 / 255.0f),
+    };
+    // clang-format on
+}
 
 bool InitD2DAndDWrite()
 {
@@ -266,7 +268,7 @@ void OnPaint(HWND hwnd)
 
         float curX = textMarginLeft;
         const float textY = textMarginTop;
-        const auto colors = RainbowColors();
+        const auto colors = GetOverlayTextColors();
         const int colorCnt = static_cast<int>(colors.size());
         for (size_t i = 0; i < g_cache.layouts.size(); ++i)
         {

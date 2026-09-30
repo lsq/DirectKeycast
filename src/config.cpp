@@ -11,8 +11,8 @@
 #include <cctype>
 #include <fstream>
 #include <map>
-#include <shlobj.h>
 #include <shellapi.h>
+#include <shlobj.h>
 #include <sstream>
 
 #pragma comment(lib, "shell32.lib")
@@ -229,7 +229,20 @@ void ApplyParsed(const TomlTable &table)
     c.showMouse = ParseBool(GetValue(table, "overlay", "show_mouse", "true"), true);
     c.fadeMs = ClampInt(ParseInt(GetValue(table, "overlay", "fade_ms", "1500"), 1500), 300, 8000);
     c.position = ClampPosition(string_to_wstring(GetValue(table, "overlay", "position", "bottom-right")));
+}
 
+void ApplyDefaults()
+{
+    // maxSize is derived from the monitor, not a user setting.
+    const int maxSize = ::KeycastConfig.maxSize;
+    ::KeycastConfig = AppConfig{};
+    ::KeycastConfig.maxSize = maxSize;
+}
+
+// Picks the first installed family out of font -> default_font -> built-in fallback.
+void ResolveOverlayFont()
+{
+    const auto &c = ::KeycastConfig;
     if (IsFontExists(c.font))
     {
         ::fontName = c.font;
@@ -285,21 +298,8 @@ std::filesystem::path GetConfigFilePath()
 
 void InitializeConfig()
 {
-    ::KeycastConfig.maxSize = 83;
-    ::KeycastConfig.themeMode = L"dark";
-    ::KeycastConfig.font = ::defaultFont;
-    ::KeycastConfig.defaultFont = ::backupFont;
-    ::KeycastConfig.fontSize = 24.0f;
-    ::KeycastConfig.rainbowText = true;
-    ::KeycastConfig.bgOpacity = 0.75f;
-    ::KeycastConfig.cornerRadius = 12.0f;
-    ::KeycastConfig.borderThickness = 3.0f;
-    ::KeycastConfig.enabled = true;
-    ::KeycastConfig.showMouse = true;
-    ::KeycastConfig.fadeMs = 1500;
-    ::KeycastConfig.position = L"bottom-right";
+    ApplyDefaults();
     LoadAppConfig();
-    RefreshTheme();
 }
 
 bool LoadAppConfig()
@@ -309,6 +309,7 @@ bool LoadAppConfig()
     if (!std::filesystem::exists(path, ec))
     {
         SaveAppConfig();
+        ResolveOverlayFont();
         RefreshTheme();
         return true;
     }
@@ -316,13 +317,34 @@ bool LoadAppConfig()
     std::ifstream in(path, std::ios::binary);
     if (!in)
     {
+        ResolveOverlayFont();
+        RefreshTheme();
         return false;
     }
     std::ostringstream buf;
     buf << in.rdbuf();
     ApplyParsed(ParseToml(buf.str()));
+    ResolveOverlayFont();
     RefreshTheme();
     return true;
+}
+
+void ResetAppConfig()
+{
+    ApplyDefaults();
+    SaveAppConfig();
+    ApplyConfigToRuntime();
+}
+
+void SetOverlayEnabled(bool enabled)
+{
+    if (::KeycastConfig.enabled == enabled)
+    {
+        return;
+    }
+    ::KeycastConfig.enabled = enabled;
+    SaveAppConfig();
+    ApplyConfigToRuntime();
 }
 
 bool SaveAppConfig()
@@ -340,6 +362,7 @@ bool SaveAppConfig()
 
 void ApplyConfigToRuntime()
 {
+    ResolveOverlayFont();
     RefreshTheme();
     RecreateOverlayTextFormat();
     InvalidateOverlayCache();
@@ -354,7 +377,7 @@ void ApplyConfigToRuntime()
         }
     }
     RefreshTrayMenuTheme();
-    RefreshSettingsWindowTheme();
+    RefreshSettingsWindow();
     UpdateMouseRawInput();
 }
 

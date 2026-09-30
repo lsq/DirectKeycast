@@ -12,7 +12,6 @@
 #include <winuser.h>
 
 extern CTimer g_timerHide;
-extern CTimer g_timerShow;
 
 enum ModifierKey
 {

@@ -3,16 +3,18 @@
 #include "d2d.h"
 #include "globals.h"
 #include "hook.h"
+#include "msimeui/Application.h"
 #include "settings.h"
 #include "tray_menu.h"
 #include "window.h"
-#include "msimeui/Application.h"
 #include <winuser.h>
 
-#define HOTKEY_ID 1
-
 CTimer g_timerHide;
-CTimer g_timerShow;
+
+namespace
+{
+constexpr wchar_t kSingleInstanceMutex[] = L"Local\\DirectKeycast.SingleInstance";
+constexpr wchar_t kOverlayWindowClass[] = L"DirectKeycastClass";
 
 void OnHideWindow()
 {
@@ -22,13 +24,30 @@ void OnHideWindow()
     }
 }
 
-void OnShowWindow()
+// A second launch brings up the running instance's settings instead of starting another hook.
+void ActivateRunningInstance()
 {
-    if (::D2DHwnd && ::KeycastConfig.enabled)
+    if (HWND existing = FindWindowW(kOverlayWindowClass, nullptr))
     {
-        PostMessage(::D2DHwnd, WM_APP_SHOW_OVERLAY, 0, 0);
+        DWORD pid = 0;
+        GetWindowThreadProcessId(existing, &pid);
+        AllowSetForegroundWindow(pid);
+        PostMessageW(existing, WM_APP_OPEN_SETTINGS, 0, 0);
     }
 }
+
+void RegisterHotkeys()
+{
+    ::ExitHotkeyRegistered = RegisterHotKey(nullptr, HOTKEY_ID_EXIT, HOTKEY_MODIFIERS, HOTKEY_VK_EXIT) != FALSE;
+    ::ToggleHotkeyRegistered = RegisterHotKey(nullptr, HOTKEY_ID_TOGGLE, HOTKEY_MODIFIERS, HOTKEY_VK_TOGGLE) != FALSE;
+}
+
+void UnregisterHotkeys()
+{
+    UnregisterHotKey(nullptr, HOTKEY_ID_EXIT);
+    UnregisterHotKey(nullptr, HOTKEY_ID_TOGGLE);
+}
+} // namespace
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
 {
@@ -36,18 +55,22 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     UNREFERENCED_PARAMETER(lpCmdLine);
     UNREFERENCED_PARAMETER(nCmdShow);
 
+    HANDLE instanceMutex = CreateMutexW(nullptr, TRUE, kSingleInstanceMutex);
+    if (instanceMutex && GetLastError() == ERROR_ALREADY_EXISTS)
+    {
+        ActivateRunningInstance();
+        CloseHandle(instanceMutex);
+        return 0;
+    }
+
     const bool msimeuiReady = msimeui::Application::Initialize();
     if (!msimeuiReady)
     {
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     }
 
-    UnregisterHotKey(nullptr, HOTKEY_ID);
-    if (!RegisterHotKey(nullptr, HOTKEY_ID, MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F12))
-    {
-        MessageBox(nullptr, L"Cannot Register Hotkey！", L"Error", MB_ICONERROR);
-        return 1;
-    }
+    // Not fatal: the tray menu can still toggle the overlay and exit.
+    RegisterHotkeys();
 
     ::InitializeConfig();
 
@@ -69,21 +92,26 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     StartInputCapture(hwnd);
 
     g_timerHide.OnTimedEvent = OnHideWindow;
-    g_timerShow.OnTimedEvent = OnShowWindow;
 
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0))
     {
-        if (msg.message == WM_HOTKEY && msg.wParam == HOTKEY_ID)
+        if (msg.message == WM_HOTKEY && msg.wParam == HOTKEY_ID_EXIT)
         {
             break;
+        }
+        if (msg.message == WM_HOTKEY && msg.wParam == HOTKEY_ID_TOGGLE)
+        {
+            SetOverlayEnabled(!::KeycastConfig.enabled);
+            continue;
         }
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
 
-    UnregisterHotKey(nullptr, HOTKEY_ID);
+    UnregisterHotkeys();
     StopInputCapture();
+    g_timerHide.Stop();
     CloseSettingsWindow();
     DestroyTrayMenuWindow();
     RemoveTrayIcon();
@@ -91,6 +119,11 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     if (msimeuiReady)
     {
         msimeui::Application::Shutdown();
+    }
+    if (instanceMutex)
+    {
+        ReleaseMutex(instanceMutex);
+        CloseHandle(instanceMutex);
     }
     return (int)msg.wParam;
 }

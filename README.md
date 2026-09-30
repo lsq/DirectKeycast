@@ -8,27 +8,44 @@ Rev of [Keycastow](https://github.com/brookhong/KeyCastOW).
 
 ## How to build and run
 
-Notice: Please make sure you open this settings before you start to compile,
-
-![](https://github.com/user-attachments/assets/6fd14c4e-b09c-421e-8263-f35b8251a732)
-
-Then initialize submodules and generate the config files:
+Requirements: Visual Studio 2022 or 2026 with the "Desktop development with C++" workload, CMake 3.25+, Git.
 
 ```powershell
-git submodule update --init --recursive
-python .\scripts\prepare_env.py
-```
-
-Then, run the following command in your powershell,
-
-```powershell
+git clone --recursive https://github.com/fanlusky/DirectKeycast.git
+cd DirectKeycast
 .\scripts\llaunch.ps1
 ```
 
+The scripts pick the newest installed Visual Studio, initialize the `msimeui` submodule if needed, and output to `build\bin\<Config>\directkeycast.exe`.
+
+| Script | What it does |
+| --- | --- |
+| `scripts\lcompile.ps1` | Build Debug |
+| `scripts\lcompile-release.ps1` | Build Release |
+| `scripts\llaunch.ps1` | Build Debug, then run |
+| `scripts\llaunch-release.ps1` | Build Release, then run |
+| `scripts\lrun.ps1 [-Configuration Release]` | Run an existing build |
+| `scripts\build.ps1` | The underlying script: `-Configuration Debug\|Release`, `-Preset auto\|vs2026\|vs2022`, `-Fresh`, `-Run` |
+
+The wrappers forward extra arguments, e.g. `.\scripts\lcompile.ps1 -Preset vs2022 -Fresh`. You can also use the presets directly (`cmake --preset vs2026` then `cmake --build --preset vs2026-release`) or open the folder in Visual Studio.
+
+For clangd, generate `.clangd` with the paths of your checkout:
+
+```powershell
+python .\scripts\prepare_env.py
+```
+
+## Settings
+
+Left-click the tray icon (or run `directkeycast.exe` again) to open the settings window. Right-click the tray icon for the quick menu.
+
+Settings are saved to `%LOCALAPPDATA%\DirectKeycast\config.toml`; `assets\config\config.toml` documents every key.
+
+## Hotkeys
+
+- `Ctrl + Alt + Shift + F11`: show / hide the key overlay.
+- `Ctrl + Alt + Shift + F12`: exit.
+
 ## How to exit
 
-Kill it at the system tray pop-up menu.
-
-Or, use hotkey: `Ctrl + Alt + Shift + F12`.
-
-Or, kill it from task manager.
+Use the tray menu, press `Ctrl + Alt + Shift + F12`, or kill it from task manager.

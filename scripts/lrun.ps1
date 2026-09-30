@@ -1,21 +1,20 @@
 #
-# run exe file that has already been compiled before
+# Run an exe that has already been built.
 #
+[CmdletBinding()]
+param(
+    [ValidateSet("Debug", "Release")]
+    [string]$Configuration = "Debug"
+)
 
-function getExePathFromCMakeLists() {
-    $content = Get-Content -Raw -Path "./CMakeLists.txt"
-    $exePath = ""
-    foreach ($line in $content -split "`n") {
-        if ($line -match 'set\(MY_EXECUTABLE_NAME[^\"]*\"([^\"]+)\"') {
-            $exeName = $matches[1]
-            $exePath = "./build/bin/Debug/$exeName" + ".exe"
-            break
-        }
-    }
-    return $exePath
+$ErrorActionPreference = "Stop"
+
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$exePath = Join-Path $repoRoot "build/bin/$Configuration/directkeycast.exe"
+
+if (-not (Test-Path -LiteralPath $exePath)) {
+    throw "Executable not found: $exePath (build it first with ./scripts/lcompile.ps1)"
 }
 
-$exePath = getExePathFromCMakeLists
-#Write-Host "start running as follows..."
-#Write-Host "=================================================="
-Invoke-Expression $exePath
+Write-Host "Starting $exePath"
+Start-Process -FilePath $exePath -WorkingDirectory (Split-Path -Parent $exePath)

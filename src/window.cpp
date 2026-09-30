@@ -3,6 +3,7 @@
 #include "d2d.h"
 #include "globals.h"
 #include "hook.h"
+#include "resource.h"
 #include "settings.h"
 #include "theme.h"
 #include "tray_menu.h"
@@ -15,6 +16,12 @@ namespace
 {
 constexpr int kMinOverlayPx = 32;
 constexpr int kWorkMarginPx = 8;
+
+UINT TaskbarCreatedMessage()
+{
+    static const UINT message = RegisterWindowMessageW(L"TaskbarCreated");
+    return message;
+}
 
 void PlaceOverlayOnMonitor(HWND hwnd)
 {
@@ -153,10 +160,19 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
         return 0;
 
     case WM_SETTINGCHANGE:
-        RefreshTheme();
-        InvalidateRect(hwnd, nullptr, FALSE);
-        RefreshTrayMenuTheme();
-        RefreshSettingsWindowTheme();
+        if (wParam == SPI_SETWORKAREA)
+        {
+            UpdateOverlayWindowPlacement(hwnd);
+        }
+        // Only "follow system" reacts to the OS light/dark switch.
+        if (lParam && lstrcmpiW(reinterpret_cast<LPCWSTR>(lParam), L"ImmersiveColorSet") == 0 && ::KeycastConfig.themeMode == L"system")
+        {
+            RefreshTheme();
+            InvalidateOverlayCache();
+            InvalidateRect(hwnd, nullptr, FALSE);
+            RefreshTrayMenuTheme();
+            RefreshSettingsWindow();
+        }
         return 0;
 
     case WM_DESTROY:
@@ -223,6 +239,12 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
     }
 
     default:
+        // Explorer restarted: the notification area is new and our icon is gone.
+        if (message == TaskbarCreatedMessage() && message != 0)
+        {
+            AddTrayIcon(hwnd);
+            return 0;
+        }
         return DefWindowProc(hwnd, message, wParam, lParam);
     }
     return 0;
@@ -236,7 +258,11 @@ void AddTrayIcon(HWND hwnd)
     nid.uID = 1;
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid.uCallbackMessage = WM_TRAYICON;
-    nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+    nid.hIcon = static_cast<HICON>(LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_APP_ICON), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
+    if (!nid.hIcon)
+    {
+        nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+    }
     wcscpy_s(nid.szTip, L"DirectKeycast");
     Shell_NotifyIcon(NIM_ADD, &nid);
 }
