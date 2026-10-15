@@ -28,6 +28,7 @@ constexpr int kMinWidthDip = 760;
 constexpr int kMinHeightDip = 520;
 constexpr float kSidebarWidth = 200.0f;
 constexpr float kContentMaxWidth = 900.0f;
+constexpr const wchar_t *kWindowTitle = L"Settings";
 constexpr const wchar_t *kProjectUrl = L"https://github.com/fanlusky/DirectKeycast";
 
 enum class Page
@@ -47,6 +48,7 @@ struct PageEntry
 using VisualPtr = std::shared_ptr<msimeui::Visual>;
 
 std::unique_ptr<msimeui::Window> g_window;
+std::shared_ptr<dkui::TitleBar> g_titleBar;
 std::shared_ptr<msimeui::Container> g_content;
 std::vector<PageEntry> g_pages;
 Page g_page = Page::Appearance;
@@ -190,7 +192,7 @@ VisualPtr MakePage(const std::wstring &title, const std::vector<VisualPtr> &sect
     }
     auto column = std::make_shared<dkui::CenteredColumn>(stack, kContentMaxWidth);
     column->SetPadding({16.0f, 0.0f, 24.0f, 0.0f});
-    auto scroll = std::make_shared<msimeui::ScrollViewer>(column);
+    auto scroll = std::make_shared<dkui::ScrollViewer>(column);
     scroll->SetVerticalAlignment(msimeui::VerticalAlignment::Stretch);
     return scroll;
 }
@@ -348,15 +350,19 @@ void BuildSettingsScene()
         {std::make_shared<dkui::NavItem>(SvgIcon::About, L"关于"), BuildAboutPage()},
     };
 
-    auto root = std::make_shared<msimeui::Grid>();
+    auto root = std::make_shared<dkui::WheelRoutingGrid>();
     root->AddColumn({msimeui::GridUnitType::Pixel, kSidebarWidth});
     root->AddColumn({msimeui::GridUnitType::Star, 1.0f});
+    root->AddRow({msimeui::GridUnitType::Auto, 0.0f});
     root->AddRow({msimeui::GridUnitType::Star, 1.0f});
 
+    g_titleBar = std::make_shared<dkui::TitleBar>(kWindowTitle);
     g_content = std::make_shared<msimeui::Container>();
     g_content->SetVerticalAlignment(msimeui::VerticalAlignment::Stretch);
-    root->AddChild(BuildSidebar(), 0, 0);
-    root->AddChild(g_content, 0, 1);
+    root->AddChild(g_titleBar, 0, 0, 1, 2);
+    root->AddChild(BuildSidebar(), 1, 0);
+    root->AddChild(g_content, 1, 1);
+    root->AddChild(g_titleBar->GetToolTip(), 0, 0, 2, 2);
 
     auto scene = std::make_unique<msimeui::Scene>();
     scene->SetRoot(root);
@@ -384,7 +390,7 @@ bool EnsureSettingsWindow()
 
     POINT origin{0, 0};
     const UINT dpi = MonitorDpiFromPoint(origin);
-    g_window = std::make_unique<msimeui::Window>(L"DirectKeycastSettingsWindow", L"DirectKeycast 设置", DipToPxForDpi(static_cast<float>(kWindowWidthDip), dpi), DipToPxForDpi(static_cast<float>(kWindowHeightDip), dpi));
+    g_window = std::make_unique<msimeui::Window>(L"DirectKeycastSettingsWindow", kWindowTitle, DipToPxForDpi(static_cast<float>(kWindowWidthDip), dpi), DipToPxForDpi(static_cast<float>(kWindowHeightDip), dpi));
     g_window->SetWindowStyle(WS_OVERLAPPEDWINDOW, WS_EX_APPWINDOW);
     g_window->SetRoundedCorners(true);
     g_window->SetInitialPlacement(msimeui::WindowInitialPlacement::Center);
@@ -396,6 +402,15 @@ bool EnsureSettingsWindow()
 
     HWND hwnd = g_window->GetHandle();
     AttachMsimeuiHost(hwnd, DkMsimeuiHideOnClose | DkMsimeuiMinSize, kMinWidthDip, kMinHeightDip);
+    DkCustomCaption caption;
+    caption.hitTest = [](POINT clientPt) -> LRESULT { return g_titleBar && g_window ? g_titleBar->HitTestCaption(g_window->ClientPixelsToDips(clientPt)) : HTCLIENT; };
+    caption.setButtonState = [](LRESULT hot, LRESULT pressed) {
+        if (g_titleBar)
+        {
+            g_titleBar->SetButtonState(hot, pressed);
+        }
+    };
+    AttachCustomCaption(hwnd, std::move(caption));
     ApplyWindowChrome();
     // Built once per window: msimeui::Window holds raw pointers to hovered/focused
     // visuals, so the tree must outlive the HWND instead of being rebuilt on changes.
@@ -427,6 +442,7 @@ void CloseSettingsWindow()
         DestroyWindow(g_window->GetHandle());
     }
     g_window.reset();
+    g_titleBar.reset();
     g_content.reset();
     g_pages.clear();
     g_syncers.clear();

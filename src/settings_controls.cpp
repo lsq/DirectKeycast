@@ -1168,7 +1168,8 @@ void NavItem::Render(msimeui::DeviceResources &deviceResources)
     }
     if (selected_)
     {
-        FillRounded(deviceResources, {bounds_.x - 6.0f, bounds_.y + (bounds_.height - 20.0f) * 0.5f, 4.0f, 20.0f}, 2.0f, theme.accent);
+        // Centered on the left edge of the item background.
+        FillRounded(deviceResources, {bounds_.x - 2.0f, bounds_.y + (bounds_.height - 20.0f) * 0.5f, 4.0f, 20.0f}, 2.0f, theme.accent);
     }
 
     const bool emphasized = selected_ || hovered_;
@@ -1217,6 +1218,589 @@ void NavItem::OnMouseLeave()
     hovered_ = false;
     pressed_ = false;
     InvalidateVisual();
+}
+
+//
+// WheelRoutingGrid
+//
+bool WheelRoutingGrid::OnMouseWheel(const POINT &point, short delta, WPARAM keyState)
+{
+    if (!window_)
+    {
+        return false;
+    }
+    for (msimeui::Visual *visual = FindVisualAt(window_->ClientPixelsToDips(point)); visual && visual != this; visual = visual->GetParentVisual())
+    {
+        if (visual->OnMouseWheel(point, delta, keyState))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+//
+// ScrollViewer
+//
+namespace
+{
+constexpr float kScrollbarHitWidth = 12.0f;
+constexpr float kScrollbarThumbWidth = 4.0f;
+constexpr float kScrollbarInset = 2.0f;
+constexpr float kScrollbarMinThumb = 36.0f;
+constexpr float kWheelStep = 72.0f;
+} // namespace
+
+ScrollViewer::ScrollViewer(std::shared_ptr<msimeui::Visual> content) : content_(std::move(content))
+{
+    AdoptChild(content_);
+}
+
+SizeF ScrollViewer::Measure(const SizeF &availableSize)
+{
+    measuredContent_ = content_ ? content_->MeasureInLayout({availableSize.width, kUnboundedWidth}) : SizeF{};
+    return availableSize;
+}
+
+void ScrollViewer::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+    offset_ = (std::clamp)(offset_, 0.0f, MaxOffset());
+    UpdateContentLayout();
+}
+
+void ScrollViewer::Render(msimeui::DeviceResources &deviceResources)
+{
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    if (!target || !content_)
+    {
+        return;
+    }
+    target->PushAxisAlignedClip(ToD2D(bounds_), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+    content_->Render(deviceResources);
+    target->PopAxisAlignedClip();
+
+    if (HasScrollbar())
+    {
+        const ThemeColors &theme = GetTheme();
+        FillRounded(deviceResources, ThumbRect(), 1.0f, (hovered_ || dragging_) ? theme.scrollbarThumbHover : theme.scrollbarThumb);
+    }
+}
+
+void ScrollViewer::Attach(msimeui::Window *window)
+{
+    Visual::Attach(window);
+    if (content_)
+    {
+        content_->Attach(window);
+    }
+}
+
+msimeui::Visual *ScrollViewer::FindVisualAt(const PointF &point)
+{
+    if (!HitTest(point))
+    {
+        return nullptr;
+    }
+    if (HasScrollbar() && Contains(TrackRect(), point))
+    {
+        return this;
+    }
+    if (content_)
+    {
+        if (msimeui::Visual *hit = content_->FindVisualAt(point))
+        {
+            return hit;
+        }
+    }
+    return this;
+}
+
+msimeui::Visual *ScrollViewer::FindFocusableAt(const PointF &point)
+{
+    if (!HitTest(point) || (HasScrollbar() && Contains(TrackRect(), point)))
+    {
+        return nullptr;
+    }
+    return content_ ? content_->FindFocusableAt(point) : nullptr;
+}
+
+msimeui::Visual *ScrollViewer::FindFirstFocusableDescendant()
+{
+    return content_ ? content_->FindFirstFocusableDescendant() : nullptr;
+}
+
+bool ScrollViewer::OnMouseDown(const POINT &point, WPARAM)
+{
+    if (!window_ || !HasScrollbar())
+    {
+        return false;
+    }
+    const PointF dip = window_->ClientPixelsToDips(point);
+    if (!Contains(TrackRect(), dip))
+    {
+        return false;
+    }
+    const RectF thumb = ThumbRect();
+    if (dip.y < thumb.y || dip.y >= thumb.y + thumb.height)
+    {
+        // Clicking the track jumps there, then keeps dragging from the thumb's center.
+        ScrollToThumbTop(dip.y - thumb.height * 0.5f);
+    }
+    dragging_ = true;
+    dragOffsetY_ = dip.y - ThumbRect().y;
+    InvalidateVisual();
+    return true;
+}
+
+bool ScrollViewer::OnMouseUp(const POINT &, WPARAM)
+{
+    if (!dragging_)
+    {
+        return false;
+    }
+    dragging_ = false;
+    InvalidateVisual();
+    return true;
+}
+
+bool ScrollViewer::OnMouseMove(const POINT &point, WPARAM keyState)
+{
+    if (!window_ || !HasScrollbar())
+    {
+        return false;
+    }
+    const PointF dip = window_->ClientPixelsToDips(point);
+    const bool hovered = Contains(TrackRect(), dip);
+    if (hovered_ != hovered)
+    {
+        hovered_ = hovered;
+        InvalidateVisual();
+    }
+    if (dragging_ && (keyState & MK_LBUTTON))
+    {
+        ScrollToThumbTop(dip.y - dragOffsetY_);
+        return true;
+    }
+    return hovered;
+}
+
+void ScrollViewer::OnMouseLeave()
+{
+    if (hovered_)
+    {
+        hovered_ = false;
+        InvalidateVisual();
+    }
+}
+
+bool ScrollViewer::OnMouseWheel(const POINT &point, short delta, WPARAM)
+{
+    if (!window_ || !HitTest(window_->ClientPixelsToDips(point)) || MaxOffset() <= 0.0f)
+    {
+        return false;
+    }
+    ScrollTo(offset_ - static_cast<float>(delta) / static_cast<float>(WHEEL_DELTA) * kWheelStep);
+    return true;
+}
+
+float ScrollViewer::MaxOffset() const
+{
+    return (std::max)(0.0f, measuredContent_.height - bounds_.height);
+}
+
+bool ScrollViewer::HasScrollbar() const
+{
+    return MaxOffset() > 0.5f;
+}
+
+RectF ScrollViewer::TrackRect() const
+{
+    return {bounds_.x + bounds_.width - kScrollbarHitWidth, bounds_.y, kScrollbarHitWidth, bounds_.height};
+}
+
+RectF ScrollViewer::ThumbRect() const
+{
+    const float trackHeight = (std::max)(0.0f, bounds_.height - kScrollbarInset * 2.0f);
+    const float visibleRatio = measuredContent_.height > 0.0f ? (std::min)(1.0f, bounds_.height / measuredContent_.height) : 1.0f;
+    const float thumbHeight = (std::min)(trackHeight, (std::max)(kScrollbarMinThumb, trackHeight * visibleRatio));
+    const float maxOffset = MaxOffset();
+    const float ratio = maxOffset > 0.0f ? offset_ / maxOffset : 0.0f;
+    const float x = bounds_.x + bounds_.width - kScrollbarInset - kScrollbarThumbWidth;
+    return {x, bounds_.y + kScrollbarInset + (trackHeight - thumbHeight) * ratio, kScrollbarThumbWidth, thumbHeight};
+}
+
+void ScrollViewer::ScrollTo(float offset)
+{
+    offset = (std::clamp)(offset, 0.0f, MaxOffset());
+    if (offset == offset_)
+    {
+        return;
+    }
+    offset_ = offset;
+    UpdateContentLayout();
+    if (window_)
+    {
+        if (msimeui::Scene *scene = window_->GetScene())
+        {
+            scene->RelayoutPopups();
+        }
+    }
+    InvalidateVisual();
+}
+
+void ScrollViewer::ScrollToThumbTop(float thumbTop)
+{
+    const RectF thumb = ThumbRect();
+    const float travel = bounds_.height - kScrollbarInset * 2.0f - thumb.height;
+    if (travel <= 0.0f)
+    {
+        return;
+    }
+    ScrollTo((thumbTop - bounds_.y - kScrollbarInset) / travel * MaxOffset());
+}
+
+void ScrollViewer::UpdateContentLayout()
+{
+    if (content_)
+    {
+        content_->ArrangeInLayout({bounds_.x, bounds_.y - offset_, bounds_.width, measuredContent_.height});
+    }
+}
+
+//
+// CaptionToolTip
+//
+namespace
+{
+constexpr float kToolTipFontSize = 12.0f;
+constexpr float kToolTipPaddingX = 8.0f;
+constexpr float kToolTipHeight = 26.0f;
+constexpr float kToolTipRadius = 2.0f;
+constexpr float kToolTipEdgeMargin = 4.0f;
+const wchar_t *const kToolTipFont = L"Segoe UI";
+} // namespace
+
+void CaptionToolTip::Show(std::wstring text, const PointF &anchor)
+{
+    text_ = std::move(text);
+    anchor_ = anchor;
+    visible_ = true;
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+void CaptionToolTip::Hide()
+{
+    if (!visible_)
+    {
+        return;
+    }
+    visible_ = false;
+    if (window_)
+    {
+        window_->Invalidate();
+    }
+}
+
+SizeF CaptionToolTip::Measure(const SizeF &availableSize)
+{
+    return availableSize;
+}
+
+void CaptionToolTip::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+}
+
+void CaptionToolTip::Render(msimeui::DeviceResources &deviceResources)
+{
+    if (!visible_ || text_.empty())
+    {
+        return;
+    }
+    // Windows 11 tooltip palette for the current app mode.
+    const bool light = IsSystemLightTheme();
+    const D2D1_COLOR_F background = light ? ColorFromHex(0xF9F9F9) : ColorFromHex(0x2B2B2B);
+    const D2D1_COLOR_F border = light ? ColorFromHex(0xE0E0E0) : ColorFromHex(0x404040);
+    const D2D1_COLOR_F text = light ? ColorFromHex(0x1B1B1B) : ColorFromHex(0xFFFFFF);
+
+    const float width = TextWidth(text_, kToolTipFont, kToolTipFontSize) + kToolTipPaddingX * 2.0f;
+    const float maxX = bounds_.x + bounds_.width - kToolTipEdgeMargin - width;
+    const float x = (std::max)(bounds_.x + kToolTipEdgeMargin, (std::min)(anchor_.x, maxX));
+    const float maxY = bounds_.y + bounds_.height - kToolTipEdgeMargin - kToolTipHeight;
+    const float y = (std::max)(bounds_.y + kToolTipEdgeMargin, (std::min)(anchor_.y, maxY));
+    const RectF rect = {std::round(x), std::round(y), std::ceil(width), kToolTipHeight};
+
+    FillRounded(deviceResources, {rect.x, rect.y + 1.0f, rect.width, rect.height}, kToolTipRadius, D2D1::ColorF(0, 0, 0, light ? 0.08f : 0.3f));
+    FillRounded(deviceResources, rect, kToolTipRadius, background);
+    StrokeRounded(deviceResources, rect, kToolTipRadius, border, 1.0f);
+    DrawTextInRect(deviceResources, text_, kToolTipFont, kToolTipFontSize, DWRITE_FONT_WEIGHT_NORMAL, rect, text, true);
+}
+
+msimeui::Visual *CaptionToolTip::FindVisualAt(const PointF &)
+{
+    return nullptr;
+}
+
+msimeui::Visual *CaptionToolTip::FindFocusableAt(const PointF &)
+{
+    return nullptr;
+}
+
+//
+// TitleBar
+//
+namespace
+{
+constexpr float kTitleBarHeight = 32.0f;
+constexpr float kCaptionButtonWidth = 46.0f;
+constexpr float kCaptionGlyphSize = 10.0f;
+
+// Segoe MDL2 Assets (Windows 10) has the same code points.
+const std::wstring &CaptionIconFont()
+{
+    static const std::wstring family = IsFontExists(L"Segoe Fluent Icons") ? L"Segoe Fluent Icons" : L"Segoe MDL2 Assets";
+    return family;
+}
+constexpr UINT kToolTipDelayMs = 600;
+// Below the arrow cursor, like the native tooltip.
+constexpr float kToolTipCursorOffset = 20.0f;
+} // namespace
+
+TitleBar::TitleBar(std::wstring title) : title_(std::move(title)), toolTip_(std::make_shared<CaptionToolTip>())
+{
+}
+
+const std::shared_ptr<CaptionToolTip> &TitleBar::GetToolTip() const
+{
+    return toolTip_;
+}
+
+void CALLBACK TitleBar::ToolTipTimerProc(HWND hwnd, UINT, UINT_PTR id, DWORD)
+{
+    KillTimer(hwnd, id);
+    reinterpret_cast<TitleBar *>(id)->ShowToolTip();
+}
+
+void TitleBar::ShowToolTip()
+{
+    const HWND hwnd = window_ ? window_->GetHandle() : nullptr;
+    if (!hwnd || pressed_ != HTNOWHERE)
+    {
+        return;
+    }
+    const wchar_t *text = nullptr;
+    switch (hot_)
+    {
+    case HTMINBUTTON:
+        text = L"最小化";
+        break;
+    case HTMAXBUTTON:
+        text = IsZoomed(hwnd) ? L"向下还原" : L"最大化";
+        break;
+    case HTCLOSE:
+        text = L"关闭";
+        break;
+    default:
+        return;
+    }
+    POINT cursor = {};
+    GetCursorPos(&cursor);
+    ScreenToClient(hwnd, &cursor);
+    const PointF dip = window_->ClientPixelsToDips(cursor);
+    toolTip_->Show(text, {dip.x, dip.y + kToolTipCursorOffset});
+}
+
+LRESULT TitleBar::HitTestCaption(const PointF &point) const
+{
+    if (!Contains(bounds_, point) || Contains(ButtonRect(HTMINBUTTON), point) || Contains(ButtonRect(HTCLOSE), point))
+    {
+        return HTCLIENT;
+    }
+    return Contains(ButtonRect(HTMAXBUTTON), point) ? HTMAXBUTTON : HTCAPTION;
+}
+
+void TitleBar::SetButtonState(LRESULT hot, LRESULT pressed)
+{
+    // The host only tracks the maximize button; leaving it must not clear a
+    // client button that the mouse has already moved onto.
+    if (hot == HTNOWHERE && pressed == HTNOWHERE && IsClientButton(hot_))
+    {
+        return;
+    }
+    UpdateButtons(hot, pressed);
+}
+
+bool TitleBar::IsClientButton(LRESULT button)
+{
+    return button == HTMINBUTTON || button == HTCLOSE;
+}
+
+LRESULT TitleBar::ClientButtonAt(const POINT &point) const
+{
+    if (!window_)
+    {
+        return HTNOWHERE;
+    }
+    const PointF dip = window_->ClientPixelsToDips(point);
+    for (const LRESULT button : {HTMINBUTTON, HTCLOSE})
+    {
+        if (Contains(ButtonRect(button), dip))
+        {
+            return button;
+        }
+    }
+    return HTNOWHERE;
+}
+
+bool TitleBar::OnMouseDown(const POINT &point, WPARAM)
+{
+    const LRESULT button = ClientButtonAt(point);
+    if (button == HTNOWHERE)
+    {
+        return false;
+    }
+    UpdateButtons(button, button);
+    return true;
+}
+
+bool TitleBar::OnMouseUp(const POINT &point, WPARAM)
+{
+    if (!IsClientButton(pressed_))
+    {
+        return false;
+    }
+    const LRESULT button = ClientButtonAt(point);
+    const bool clicked = button == pressed_;
+    UpdateButtons(button, HTNOWHERE);
+    if (clicked && window_)
+    {
+        PostMessageW(window_->GetHandle(), WM_SYSCOMMAND, button == HTMINBUTTON ? SC_MINIMIZE : SC_CLOSE, 0);
+    }
+    return true;
+}
+
+bool TitleBar::OnMouseMove(const POINT &point, WPARAM)
+{
+    // Keep the press while dragging off the button, like a native one.
+    UpdateButtons(ClientButtonAt(point), IsClientButton(pressed_) ? pressed_ : HTNOWHERE);
+    return true;
+}
+
+void TitleBar::OnMouseLeave()
+{
+    if (IsClientButton(hot_))
+    {
+        UpdateButtons(HTNOWHERE, HTNOWHERE);
+    }
+}
+
+void TitleBar::UpdateButtons(LRESULT hot, LRESULT pressed)
+{
+    if (hot_ == hot && pressed_ == pressed)
+    {
+        return;
+    }
+    const bool hotChanged = hot_ != hot;
+    hot_ = hot;
+    pressed_ = pressed;
+    if (hotChanged || pressed != HTNOWHERE)
+    {
+        toolTip_->Hide();
+        const HWND hwnd = window_ ? window_->GetHandle() : nullptr;
+        const auto timerId = reinterpret_cast<UINT_PTR>(this);
+        if (hwnd)
+        {
+            KillTimer(hwnd, timerId);
+            if (hot != HTNOWHERE && pressed == HTNOWHERE)
+            {
+                SetTimer(hwnd, timerId, kToolTipDelayMs, &TitleBar::ToolTipTimerProc);
+            }
+        }
+    }
+    InvalidateVisual();
+}
+
+SizeF TitleBar::Measure(const SizeF &availableSize)
+{
+    return {availableSize.width, kTitleBarHeight};
+}
+
+void TitleBar::Arrange(const RectF &finalRect)
+{
+    bounds_ = finalRect;
+}
+
+RectF TitleBar::ButtonRect(LRESULT button) const
+{
+    const float slot = button == HTCLOSE ? 1.0f : button == HTMAXBUTTON ? 2.0f : 3.0f;
+    return {bounds_.x + bounds_.width - kCaptionButtonWidth * slot, bounds_.y, kCaptionButtonWidth, bounds_.height};
+}
+
+void TitleBar::Render(msimeui::DeviceResources &deviceResources)
+{
+    const ThemeColors &theme = GetTheme();
+    const HWND hwnd = window_ ? window_->GetHandle() : nullptr;
+    const bool active = hwnd && GetForegroundWindow() == hwnd;
+    FillRounded(deviceResources, bounds_, 0.0f, theme.chromeBg);
+
+    const float textX = bounds_.x + 12.0f;
+    const float textRight = ButtonRect(HTMINBUTTON).x - 8.0f;
+    DrawTextInRect(deviceResources, title_, L"Segoe UI", 12.0f, DWRITE_FONT_WEIGHT_NORMAL, {textX, bounds_.y, (std::max)(0.0f, textRight - textX), bounds_.height}, active ? theme.text : theme.textMuted);
+
+    for (const LRESULT button : {HTMINBUTTON, HTMAXBUTTON, HTCLOSE})
+    {
+        RenderButton(deviceResources, button, active);
+    }
+}
+
+void TitleBar::RenderButton(msimeui::DeviceResources &deviceResources, LRESULT button, bool windowActive)
+{
+    const ThemeColors &theme = GetTheme();
+    const RectF rect = ButtonRect(button);
+    const bool hot = hot_ == button;
+    const bool pressed = pressed_ == button && hot;
+    const bool closeHighlighted = button == HTCLOSE && hot;
+    if (closeHighlighted)
+    {
+        FillRounded(deviceResources, rect, 0.0f, pressed ? WithAlpha(theme.closeHover, 0.9f) : theme.closeHover);
+    }
+    else if (hot)
+    {
+        FillRounded(deviceResources, rect, 0.0f, pressed ? WithAlpha(theme.titlebarBtnHover, 0.6f) : theme.titlebarBtnHover);
+    }
+
+    D2D1_COLOR_F glyphColor = windowActive ? theme.text : theme.textMuted;
+    if (closeHighlighted)
+    {
+        glyphColor = D2D1::ColorF(1.0f, 1.0f, 1.0f, pressed ? 0.7f : 1.0f);
+    }
+    // Same glyphs as the native Windows 11 caption buttons (Segoe Fluent Icons code points).
+    wchar_t glyph[2] = {0xE8BB, 0}; // ChromeClose
+    if (button == HTMINBUTTON)
+    {
+        glyph[0] = 0xE921; // ChromeMinimize
+    }
+    else if (button == HTMAXBUTTON)
+    {
+        const HWND hwnd = window_ ? window_->GetHandle() : nullptr;
+        glyph[0] = hwnd && IsZoomed(hwnd) ? 0xE923 : 0xE922; // ChromeRestore : ChromeMaximize
+    }
+    // Grayscale like the native glyphs; ClearType leaves color fringes on these thin strokes.
+    ID2D1HwndRenderTarget *target = deviceResources.GetRenderTarget();
+    const D2D1_TEXT_ANTIALIAS_MODE previousMode = target ? target->GetTextAntialiasMode() : D2D1_TEXT_ANTIALIAS_MODE_DEFAULT;
+    if (target)
+    {
+        target->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
+    }
+    DrawTextInRect(deviceResources, glyph, CaptionIconFont(), kCaptionGlyphSize, DWRITE_FONT_WEIGHT_NORMAL, rect, glyphColor, true);
+    if (target)
+    {
+        target->SetTextAntialiasMode(previousMode);
+    }
 }
 
 //

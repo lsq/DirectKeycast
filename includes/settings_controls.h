@@ -245,6 +245,112 @@ class NavItem : public msimeui::Visual
     ClickHandler onClick_;
 };
 
+// msimeui's Scene only offers the mouse wheel to the root visual, and Grid does not
+// pass it on. Used as the scene root, this routes the wheel to the visual under the
+// cursor and bubbles it up through the parents until one of them scrolls.
+class WheelRoutingGrid : public msimeui::Grid
+{
+  public:
+    bool OnMouseWheel(const POINT &point, short delta, WPARAM keyState) override;
+};
+
+// Vertical scroll area with a thin overlay scrollbar (msimeui's is 10 DIP wide and fully rounded).
+class ScrollViewer : public msimeui::Visual
+{
+  public:
+    explicit ScrollViewer(std::shared_ptr<msimeui::Visual> content);
+
+    msimeui::SizeF Measure(const msimeui::SizeF &availableSize) override;
+    void Arrange(const msimeui::RectF &finalRect) override;
+    void Render(msimeui::DeviceResources &deviceResources) override;
+    void Attach(msimeui::Window *window) override;
+    msimeui::Visual *FindVisualAt(const msimeui::PointF &point) override;
+    msimeui::Visual *FindFocusableAt(const msimeui::PointF &point) override;
+    msimeui::Visual *FindFirstFocusableDescendant() override;
+    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
+    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    bool OnMouseMove(const POINT &point, WPARAM keyState) override;
+    void OnMouseLeave() override;
+    bool OnMouseWheel(const POINT &point, short delta, WPARAM keyState) override;
+
+  private:
+    float MaxOffset() const;
+    bool HasScrollbar() const;
+    msimeui::RectF TrackRect() const;
+    msimeui::RectF ThumbRect() const;
+    void ScrollTo(float offset);
+    void ScrollToThumbTop(float thumbTop);
+    void UpdateContentLayout();
+
+    std::shared_ptr<msimeui::Visual> content_;
+    msimeui::SizeF measuredContent_{};
+    float offset_ = 0.0f;
+    bool hovered_ = false;
+    bool dragging_ = false;
+    float dragOffsetY_ = 0.0f;
+};
+
+// Tooltip for the caption buttons, drawn on top of the whole scene. It follows the
+// Windows app theme rather than the DirectKeycast theme, like the native one does.
+class CaptionToolTip : public msimeui::Visual
+{
+  public:
+    // `anchor` is the top-left corner in DIPs; the tip is kept inside the window.
+    void Show(std::wstring text, const msimeui::PointF &anchor);
+    void Hide();
+
+    msimeui::SizeF Measure(const msimeui::SizeF &availableSize) override;
+    void Arrange(const msimeui::RectF &finalRect) override;
+    void Render(msimeui::DeviceResources &deviceResources) override;
+    msimeui::Visual *FindVisualAt(const msimeui::PointF &point) override;
+    msimeui::Visual *FindFocusableAt(const msimeui::PointF &point) override;
+
+  private:
+    std::wstring text_;
+    msimeui::PointF anchor_{};
+    bool visible_ = false;
+};
+
+// Custom-drawn caption: title on the left, minimize / maximize / close on the right.
+// Only maximize is reported as a non-client button (HTMAXBUTTON brings up Snap
+// Layouts); its input arrives as non-client messages, so the host pushes its hover
+// and press state in through SetButtonState(). Minimize and close stay client area
+// and handle the mouse themselves, because Windows pops its classic caption tooltip
+// for any HTMINBUTTON / HTCLOSE hit and that cannot be suppressed.
+class TitleBar : public msimeui::Visual
+{
+  public:
+    explicit TitleBar(std::wstring title);
+
+    // Maps a point in DIPs to HTCAPTION / HTMAXBUTTON, or HTCLIENT (outside the bar and over minimize / close).
+    LRESULT HitTestCaption(const msimeui::PointF &point) const;
+    void SetButtonState(LRESULT hot, LRESULT pressed);
+    // Must be added to the scene above everything else.
+    const std::shared_ptr<CaptionToolTip> &GetToolTip() const;
+
+    msimeui::SizeF Measure(const msimeui::SizeF &availableSize) override;
+    void Arrange(const msimeui::RectF &finalRect) override;
+    void Render(msimeui::DeviceResources &deviceResources) override;
+    bool OnMouseDown(const POINT &point, WPARAM keyState) override;
+    bool OnMouseUp(const POINT &point, WPARAM keyState) override;
+    bool OnMouseMove(const POINT &point, WPARAM keyState) override;
+    void OnMouseLeave() override;
+
+  private:
+    static void CALLBACK ToolTipTimerProc(HWND hwnd, UINT message, UINT_PTR id, DWORD time);
+    static bool IsClientButton(LRESULT button);
+    LRESULT ClientButtonAt(const POINT &point) const;
+    void UpdateButtons(LRESULT hot, LRESULT pressed);
+    msimeui::RectF ButtonRect(LRESULT button) const;
+    void RenderButton(msimeui::DeviceResources &deviceResources, LRESULT button, bool windowActive);
+    void ShowToolTip();
+
+    std::wstring title_;
+    LRESULT hot_ = HTNOWHERE;
+    LRESULT pressed_ = HTNOWHERE;
+    std::shared_ptr<CaptionToolTip> toolTip_;
+};
+
 // DirectKeycast mark: accent keycap with a "K" legend. Also used for the .ico.
 class AppLogo : public msimeui::Visual
 {
