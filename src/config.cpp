@@ -211,6 +211,10 @@ std::string BuildConfigText()
     out << "fade_ms = " << c.fadeMs << "\n";
     out << "# 浮层位置，可选：\"bottom-right\", \"bottom-left\", \"top-right\", \"top-left\"\n";
     out << "position = \"" << EscapeToml(wstring_to_string(c.position)) << "\"\n";
+    // BuildConfigText()
+    out << "[logging]\n";
+    out << "# 日志文件位置：true=程序所在目录，false=配置文件所在目录\n";
+    out << "log_to_exe_dir = " << (c.logToExeDir ? "true" : "false") << "\n";
     return out.str();
 }
 
@@ -229,6 +233,7 @@ void ApplyParsed(const TomlTable &table)
     c.showMouse = ParseBool(GetValue(table, "overlay", "show_mouse", "true"), true);
     c.fadeMs = ClampInt(ParseInt(GetValue(table, "overlay", "fade_ms", "1500"), 1500), 300, 8000);
     c.position = ClampPosition(string_to_wstring(GetValue(table, "overlay", "position", "bottom-right")));
+    c.logToExeDir = ParseBool(GetValue(table, "logging", "log_to_exe_dir", "true"), true);
 }
 
 void ApplyDefaults()
@@ -294,6 +299,19 @@ std::filesystem::path GetConfigDirectory()
 std::filesystem::path GetConfigFilePath()
 {
     return GetConfigDirectory() / L"config.toml";
+}
+
+std::filesystem::path GetExeDirectory()
+{
+    wchar_t path[MAX_PATH] = {0};
+    GetModuleFileNameW(nullptr, path, MAX_PATH);
+    return std::filesystem::path(path).parent_path();
+}
+
+std::filesystem::path GetLogFilePath()
+{
+    const auto dir = ::KeycastConfig.logToExeDir ? GetExeDirectory() : GetConfigDirectory();
+    return dir / L"keycast_log.txt";
 }
 
 void InitializeConfig()

@@ -36,6 +36,7 @@ inline struct AppConfig
     bool enabled = true;
     bool showMouse = true;
     int fadeMs = 1500;
+    bool logToExeDir = true; // true: exe 所在目录；false: 配置文件所在目录
     std::wstring position = L"bottom-right";
 } KeycastConfig;
 

@@ -1,0 +1,77 @@
+name: Windows Build
+
+on:
+  push:
+    branches:
+      # - main
+      # - dev
+      - dev
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: write   # action-gh-release 需要
+
+jobs:
+  build-cli:
+    name: Build ${{ matrix.name }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            msvc_arch: amd64
+            exe_suffix: x64
+            cache_key: windows-x86_64
+          - name: windows-arm64
+            msvc_arch: amd64_arm64   # x64 主机交叉编译 arm64
+            exe_suffix: arm64
+            cache_key: windows-aarch64
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup MSVC (${{ matrix.msvc_arch }})
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
+
+      - name: Compile DirectKeycast
+        run: |
+          .\scripts\lcompile-release.ps1
+
+      - name: Stage artifacts
+        run: |
+          $d = "dist-${{ matrix.exe_suffix }}"
+          New-Item -ItemType Directory -Force $d | Out-Null
+          Copy-Item "build\bin\Release\DirectKeycast.exe" "$d\DirectKeycast.exe"
+          Compress-Archive -Path "$d\*" -DestinationPath "DirectKeycast-${{ matrix.name }}.zip"
+          Get-ChildItem $d, "DirectKeycast-${{ matrix.name }}.zip"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: DirectKeycast-${{ matrix.name }}
+          path: dist-${{ matrix.exe_suffix }}/
+          retention-days: 14
+
+      - name: Setup upterm session
+        if: failure()
+        with:
+          wait-timeout-minutes: 20
+          detached: true
+        uses: owenthereal/action-upterm@v2
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: DirectKeycast-${{ matrix.name }}.zip
+          generate_release_notes: true

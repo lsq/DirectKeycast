@@ -15,6 +15,8 @@ void SetOverlayEnabled(bool enabled);
 
 std::filesystem::path GetConfigDirectory();
 std::filesystem::path GetConfigFilePath();
+std::filesystem::path GetLogFilePath();
+std::filesystem::path GetExeDirectory();
 const std::vector<std::wstring> &GetSystemFontFamilies();
 bool OpenConfigFile();
 bool OpenConfigDirectory();
