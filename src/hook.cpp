@@ -2,6 +2,7 @@
 #include "CTimer.h"
 #include "d2d.h"
 #include "globals.h"
+#include "key_logger.h" // 新增头文件
 #include "settings.h"
 #include "tray_menu.h"
 #include "utils.h"
@@ -101,7 +102,12 @@ DWORD WINAPI HookThreadProc(LPVOID)
 
 void CastMouseButton(const wchar_t *label, POINT pt)
 {
-    if (!::KeycastConfig.showMouse || ShouldIgnoreMouseCast(pt))
+    if (ShouldIgnoreMouseCast(pt))
+    {
+        return;
+    }
+    LogKeyEvent(label); // 独立于 showMouse 开关，始终记录
+    if (!::KeycastConfig.showMouse)
     {
         return;
     }
@@ -302,6 +308,7 @@ void HandleKeyDown(const KBDLLHOOKSTRUCT *s)
         if (IsOnlyOneShiftPressed() && KeyCastMapOnShift().count(vkeyCode))
         {
             auto curKeyStr = KeyCastMapOnShift().at(vkeyCode);
+            LogKeyEvent(curKeyStr); // 新增
             if (::KeyStringToCast.size() > static_cast<size_t>(::KeycastConfig.maxSize) || ::KeyStringToCast.size() + curKeyStr.size() > static_cast<size_t>(::KeycastConfig.maxSize))
                 ::KeyStringToCast = L"";
             ::KeyStringToCast += curKeyStr;
@@ -350,10 +357,12 @@ void HandleKeyDown(const KBDLLHOOKSTRUCT *s)
         std::wstring delimiter = L"-";
         std::wstring curResKeyStr = std::accumulate(modifierList.begin(), modifierList.end(), std::wstring(), [&](const std::wstring &a, const std::wstring &b) { return a.empty() ? b : a + delimiter + b; });
         curResKeyStr = L"<" + curResKeyStr + L">";
+        LogKeyEvent(curResKeyStr); // 新增
         ::appendCurrentKeyAndUpdateWnd(curResKeyStr);
         return;
     }
     auto curKeyStr = KeyCastMap().at(vkeyCode);
+    LogKeyEvent(curKeyStr); // 新增
     ::appendCurrentKeyAndUpdateWnd(curKeyStr);
 }
 
@@ -365,6 +374,7 @@ void HandleModifierKeyDown(DWORD vkcode)
     }
     SetOneModifier(vkcode);
     auto curKeyStr = KeyCastMap().at(vkcode);
+    LogKeyEvent(curKeyStr); // 新增
     ::appendCurrentKeyAndUpdateWnd(curKeyStr);
 }
 

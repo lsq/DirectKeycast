@@ -43,6 +43,7 @@ set(SRC_FILES
     "./includes/theme.h"
     "./includes/tray_menu.h"
     "./includes/utils.h"
+    "./includes/key_logger.h"
     "./includes/version.h.in"
     "./includes/window.h"
     # source files
@@ -57,6 +58,7 @@ set(SRC_FILES
     "./src/theme.cpp"
     "./src/tray_menu.cpp"
     "./src/utils.cpp"
+    "./src/key_logger.cpp"
     "./src/window.cpp"
     # resources
     "./src/directkeycast.rc"

@@ -3,6 +3,7 @@
 #include "d2d.h"
 #include "globals.h"
 #include "hook.h"
+#include "key_logger.h"
 #include "msimeui/Application.h"
 #include "settings.h"
 #include "tray_menu.h"
@@ -73,6 +74,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     RegisterHotkeys();
 
     ::InitializeConfig();
+    InitKeyLogger(); // 新增：在 InitializeConfig 之后、StartInputCapture 之前初始化
 
     if (!InitD2DAndDWrite())
     {
@@ -111,6 +113,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 
     UnregisterHotkeys();
     StopInputCapture();
+    ShutdownKeyLogger(); // 新增：进程退出前关闭文件句柄
     g_timerHide.Stop();
     CloseSettingsWindow();
     DestroyTrayMenuWindow();
